@@ -15,7 +15,7 @@
 const c = document.getElementById('c');
 const ctx = c.getContext('2d');
 
-// ---- настройки через URL: ?moon=0&bats=0&blood=0&eyes=0&fog=0&scene=1
+// Настройки через URL
 const q = new URLSearchParams(location.search);
 const OPT = {
   moon:  q.get('moon')  !== '0',
@@ -23,7 +23,9 @@ const OPT = {
   blood: q.get('blood') !== '0',
   eyes:  q.get('eyes')  !== '0',
   fog:   q.get('fog')   !== '0',
-  scene: q.get('scene') === '1',   // тёмный фон, если открываешь в браузере
+  scene: q.get('scene') === '1',
+  lightning: q.get('lightning') !== '0',
+  spider: q.get('spider') !== '0'
 };
 
 let W, H;
@@ -36,13 +38,31 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
+// ---------- МОЛНИЯ ----------
+let lightningAlpha = 0;
+let lightningTimer = Math.random() * 600;
+function drawLightning() {
+  if (!OPT.lightning) return;
+  lightningTimer--;
+  if (lightningTimer <= 0) {
+    lightningAlpha = 0.6 + Math.random() * 0.4;
+    lightningTimer = 400 + Math.random() * 800; 
+  }
+  if (lightningAlpha > 0) {
+    ctx.fillStyle = `rgba(200, 180, 255, ${lightningAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+    lightningAlpha -= 0.05;
+    if (lightningAlpha < 0) lightningAlpha = 0;
+  }
+}
+
 // ---------- ТУМАН ----------
 class Fog {
   constructor() { this.respawn(); }
   respawn() {
     this.x = Math.random() * W;
     this.y = Math.random() * H;
-    this.r = 150 + Math.random() * 280;
+    this.r = 200 + Math.random() * 300;
     this.vx = (Math.random() - 0.5) * 0.4;
     this.vy = (Math.random() - 0.5) * 0.15;
     this.a  = 0.02 + Math.random() * 0.05;
@@ -64,6 +84,34 @@ class Fog {
   }
 }
 
+// ---------- СВЕТЛЯЧКИ (ИСКРЫ) ----------
+class Ember {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.size = 1 + Math.random() * 3;
+    this.speedY = 0.2 + Math.random() * 0.8;
+    this.speedX = (Math.random() - 0.5) * 0.5;
+    this.alpha = 0.1 + Math.random() * 0.7;
+    this.flicker = Math.random() * 0.05;
+  }
+  update() {
+    this.y -= this.speedY;
+    this.x += this.speedX + Math.sin(this.y * 0.01) * 0.5;
+    this.alpha += (Math.random() - 0.5) * 0.1;
+    this.alpha = Math.max(0.1, Math.min(0.9, this.alpha));
+    if (this.y < -10) this.reset();
+  }
+  draw() {
+    const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 4);
+    g.addColorStop(0, `rgba(255, 100, 0, ${this.alpha})`);
+    g.addColorStop(1, 'rgba(255, 50, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.size * 4, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
 // ---------- ЛЕТУЧИЕ МЫШИ ----------
 class Bat {
   constructor() { this.reset(); }
@@ -73,7 +121,7 @@ class Bat {
     this.baseY = 60 + Math.random() * (H - 120);
     this.y = this.baseY;
     this.size = 10 + Math.random() * 14;
-    this.speed = 1 + Math.random() * 2;
+    this.speed = 1.5 + Math.random() * 2.5;
     this.t = Math.random() * 100;
     this.amp = 8 + Math.random() * 25;
   }
@@ -81,40 +129,24 @@ class Bat {
     this.t += 0.1;
     this.x += this.speed * this.dir;
     this.y = this.baseY + Math.sin(this.t) * this.amp;
-    if ((this.dir === 1 && this.x > W + 80) ||
-        (this.dir === -1 && this.x < -80)) this.reset();
+    if ((this.dir === 1 && this.x > W + 80) || (this.dir === -1 && this.x < -80)) this.reset();
   }
   draw() {
     ctx.save();
     ctx.translate(this.x, this.y);
     if (this.dir === -1) ctx.scale(-1, 1);
     const flap = Math.sin(this.t * 2) * 0.5;
-    ctx.fillStyle = 'rgba(15,0,25,0.88)';
-    ctx.shadowColor = 'rgba(255,0,60,0.35)';
+    ctx.fillStyle = 'rgba(15,0,25,0.9)';
+    ctx.shadowColor = 'rgba(255,0,60,0.4)';
     ctx.shadowBlur = 10;
-    // тело
-    ctx.beginPath();
-    ctx.ellipse(0, 0, this.size * 0.28, this.size * 0.42, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // левое крыло
-    ctx.beginPath();
-    ctx.moveTo(0, -this.size * 0.2);
-    ctx.quadraticCurveTo(-this.size, -this.size * 0.7 - flap * this.size,
-                         -this.size * 1.5, this.size * 0.25);
-    ctx.quadraticCurveTo(-this.size * 0.7, 0, 0, this.size * 0.1);
-    ctx.fill();
-    // правое крыло
-    ctx.beginPath();
-    ctx.moveTo(0, -this.size * 0.2);
-    ctx.quadraticCurveTo(this.size, -this.size * 0.7 - flap * this.size,
-                         this.size * 1.5, this.size * 0.25);
-    ctx.quadraticCurveTo(this.size * 0.7, 0, 0, this.size * 0.1);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, this.size * 0.28, this.size * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -this.size * 0.2); ctx.quadraticCurveTo(-this.size, -this.size * 0.7 - flap * this.size, -this.size * 1.5, this.size * 0.25); ctx.quadraticCurveTo(-this.size * 0.7, 0, 0, this.size * 0.1); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -this.size * 0.2); ctx.quadraticCurveTo(this.size, -this.size * 0.7 - flap * this.size, this.size * 1.5, this.size * 0.25); ctx.quadraticCurveTo(this.size * 0.7, 0, 0, this.size * 0.1); ctx.fill();
     ctx.restore();
   }
 }
 
-// ---------- ГЛАЗА В ТЕМНОТЕ ----------
+// ---------- ГЛАЗА ----------
 class Eyes {
   constructor() { this.respawn(true); }
   respawn(init = false) {
@@ -136,122 +168,236 @@ class Eyes {
     const p = this.life / this.maxLife;
     const alpha = Math.sin(p * Math.PI);
     const blink = (Math.sin(this.life * 0.08) > 0.92) ? 0.05 : 1;
-
-    // свечение
-    const g1 = ctx.createRadialGradient(
-      this.x - this.gap / 2, this.y, 0,
-      this.x - this.gap / 2, this.y, this.size * 5);
-    g1.addColorStop(0, `rgba(255,50,0,${0.55 * alpha})`);
-    g1.addColorStop(1, 'rgba(255,50,0,0)');
-    ctx.fillStyle = g1;
-    ctx.beginPath();
-    ctx.arc(this.x - this.gap / 2, this.y, this.size * 5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath();
-    ctx.arc(this.x + this.gap / 2, this.y, this.size * 5, 0, Math.PI * 2); ctx.fill();
-
-    // сами глаза
+    const g1 = ctx.createRadialGradient(this.x - this.gap / 2, this.y, 0, this.x - this.gap / 2, this.y, this.size * 5);
+    g1.addColorStop(0, `rgba(255,50,0,${0.55 * alpha})`); g1.addColorStop(1, 'rgba(255,50,0,0)');
+    ctx.fillStyle = g1; ctx.beginPath(); ctx.arc(this.x - this.gap / 2, this.y, this.size * 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(this.x + this.gap / 2, this.y, this.size * 5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = `rgba(255,90,20,${alpha * blink})`;
-    ctx.beginPath();
-    ctx.ellipse(this.x - this.gap / 2, this.y, this.size * 0.6,
-                this.size * blink, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(this.x + this.gap / 2, this.y, this.size * 0.6,
-                this.size * blink, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(this.x - this.gap / 2, this.y, this.size * 0.6, this.size * blink, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(this.x + this.gap / 2, this.y, this.size * 0.6, this.size * blink, 0, 0, Math.PI * 2); ctx.fill();
   }
 }
 
-// ---------- КРОВЬ СВЕРХУ ----------
+// ---------- КРОВЬ ----------
 class Blood {
   constructor() { this.respawn(); }
   respawn() {
-    this.x = Math.random() * W;
-    this.y = -10;
-    this.len = 0;
-    this.maxLen = 30 + Math.random() * 130;
-    this.speed = 0.4 + Math.random() * 1.4;
-    this.width = 2 + Math.random() * 3.5;
-    this.active = false;
+    this.x = Math.random() * W; this.y = -10; this.len = 0;
+    this.maxLen = 30 + Math.random() * 130; this.speed = 0.4 + Math.random() * 1.4;
+    this.width = 2 + Math.random() * 3.5; this.active = false;
     this.timer = 200 + Math.random() * 800;
   }
   update() {
     if (this.timer > 0) { this.timer--; return; }
     if (!this.active) this.active = true;
     this.len += this.speed;
-    if (this.len > this.maxLen) {
-      this.width -= 0.04;
-      if (this.width <= 0) this.respawn();
-    }
+    if (this.len > this.maxLen) { this.width -= 0.04; if (this.width <= 0) this.respawn(); }
   }
   draw() {
     if (this.len <= 0 || this.width <= 0) return;
     const g = ctx.createLinearGradient(0, this.y, 0, this.y + this.len);
-    g.addColorStop(0,    'rgba(90,0,0,0.95)');
-    g.addColorStop(0.6,  'rgba(160,10,10,0.85)');
-    g.addColorStop(1,    'rgba(120,0,0,0)');
+    g.addColorStop(0, 'rgba(90,0,0,0.95)'); g.addColorStop(0.6, 'rgba(160,10,10,0.85)'); g.addColorStop(1, 'rgba(120,0,0,0)');
     ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(this.x - this.width / 2, this.y);
+    ctx.beginPath(); ctx.moveTo(this.x - this.width / 2, this.y);
     ctx.lineTo(this.x - this.width * 0.15, this.y + this.len * 0.85);
     ctx.arc(this.x, this.y + this.len * 0.85, this.width * 0.55, Math.PI, 0);
-    ctx.lineTo(this.x + this.width / 2, this.y);
-    ctx.fill();
+    ctx.lineTo(this.x + this.width / 2, this.y); ctx.fill();
   }
 }
 
-// ---------- КРОВАВАЯ ЛУНА ----------
+// ---------- ЛУНА ----------
 function drawMoon() {
-  const mx = W - 90, my = 90, mr = 48;
+  const mx = W - 100, my = 100, mr = 55;
   const g = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 3.5);
-  g.addColorStop(0,   'rgba(255,90,20,0.30)');
-  g.addColorStop(0.5, 'rgba(255,40,10,0.10)');
-  g.addColorStop(1,   'rgba(255,40,10,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(mx, my, mr * 3.5, 0, Math.PI * 2); ctx.fill();
-
+  g.addColorStop(0, 'rgba(255,90,20,0.35)'); g.addColorStop(0.5, 'rgba(255,40,10,0.10)'); g.addColorStop(1, 'rgba(255,40,10,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(mx, my, mr * 3.5, 0, Math.PI * 2); ctx.fill();
   const m = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
-  m.addColorStop(0,   '#ffaa60');
-  m.addColorStop(0.5, '#e85a20');
-  m.addColorStop(1,   '#8e1a08');
-  ctx.fillStyle = m;
-  ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
-
+  m.addColorStop(0, '#ffaa60'); m.addColorStop(0.5, '#e85a20'); m.addColorStop(1, '#8e1a08');
+  ctx.fillStyle = m; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(70,15,5,0.28)';
   ctx.beginPath(); ctx.arc(mx - 14, my - 8, 8, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(mx + 10, my + 14, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(mx + 16, my - 14, 4, 0, Math.PI * 2); ctx.fill();
+}
+
+// ---------- ПАУК ----------
+class Spider {
+  constructor() {
+    this.x = W * 0.15; 
+    this.y = -20;
+    this.targetY = 150 + Math.random() * 150;
+    this.state = 0; // 0 - спуск, 1 - пауза, 2 - подъем
+    this.timer = 0;
+  }
+  update() {
+    if (!OPT.spider) return;
+    if (this.state === 0) {
+      this.y += 0.5;
+      if (this.y >= this.targetY) { this.state = 1; this.timer = 300; }
+    } else if (this.state === 1) {
+      this.timer--;
+      if (this.timer <= 0) this.state = 2;
+    } else if (this.state === 2) {
+      this.y -= 1.5;
+      if (this.y < -50) {
+        this.targetY = 150 + Math.random() * 200;
+        this.x = W * 0.1 + Math.random() * W * 0.8;
+        this.state = 0;
+      }
+    }
+  }
+  draw() {
+    if (!OPT.spider) return;
+    if (this.state === 2 && this.y < 0) return;
+    
+    // Нитка
+    ctx.strokeStyle = 'rgba(200,200,200,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(this.x, 0); ctx.lineTo(this.x, this.y); ctx.stroke();
+    
+    // Тело
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(this.x, this.y, 8, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(this.x, this.y - 10, 5, 0, Math.PI * 2); ctx.fill();
+    
+    // Лапки
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
+    const legOffsets = [-12, -6, 6, 12];
+    legOffsets.forEach(off => {
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.quadraticCurveTo(this.x + off*1.5, this.y - 10, this.x + off*2, this.y - 15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.quadraticCurveTo(this.x + off*1.5, this.y + 10, this.x + off*2, this.y + 15);
+      ctx.stroke();
+    });
+  }
+}
+
+// ---------- ПАУТИНА (УГЛЫ) ----------
+function drawCobweb(cx, cy, radius, angleStart, angleEnd) {
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1.5;
+  const rays = 5;
+  for (let i = 0; i <= rays; i++) {
+    const angle = angleStart + (angleEnd - angleStart) * (i / rays);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+    ctx.stroke();
+  }
+  // Кольца паутины
+  for (let r = radius * 0.2; r <= radius; r += radius * 0.25) {
+    ctx.beginPath();
+    for (let i = 0; i <= rays; i++) {
+      const angle = angleStart + (angleEnd - angleStart) * (i / rays);
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else {
+        const prevAngle = angleStart + (angleEnd - angleStart) * ((i - 1) / rays);
+        const ctrlX = cx + Math.cos((angle + prevAngle) / 2) * r * 0.8;
+        const ctrlY = cy + Math.sin((angle + prevAngle) / 2) * r * 0.8;
+        ctx.quadraticCurveTo(ctrlX, ctrlY, px, py);
+      }
+    }
+    ctx.stroke();
+  }
+}
+
+// ---------- ТЫКВА ----------
+function drawPumpkin() {
+  const px = 80, py = H - 80, pr = 60;
+  // Свечение
+  const g = ctx.createRadialGradient(px, py, 0, px, py, pr * 2);
+  g.addColorStop(0, 'rgba(255, 100, 0, 0.2)');
+  g.addColorStop(1, 'rgba(255, 100, 0, 0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, pr * 2, 0, Math.PI * 2); ctx.fill();
+
+  // Силуэт
+  ctx.fillStyle = 'rgba(20, 10, 0, 0.85)';
+  ctx.shadowColor = 'rgba(255, 80, 0, 0.5)';
+  ctx.shadowBlur = 20;
+
+  // Форма тыквы
+  ctx.beginPath();
+  ctx.ellipse(px, py, pr, pr * 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(px - 30, py, pr * 0.6, pr * 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(px + 30, py, pr * 0.6, pr * 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Хвостик
+  ctx.fillStyle = 'rgba(20, 10, 0, 0.85)';
+  ctx.fillRect(px - 8, py - pr * 0.9, 16, 20);
+
+  // Глаза и рот (светящиеся)
+  ctx.shadowBlur = 15;
+  ctx.fillStyle = '#ffcc00';
+  
+  // Глаза (треугольники)
+  ctx.beginPath(); ctx.moveTo(px - 30, py - 10); ctx.lineTo(px - 10, py - 30); ctx.lineTo(px - 10, py - 5); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(px + 30, py - 10); ctx.lineTo(px + 10, py - 30); ctx.lineTo(px + 10, py - 5); ctx.fill();
+  
+  // Зловещая улыбка
+  ctx.beginPath();
+  ctx.moveTo(px - 35, py + 15);
+  ctx.quadraticCurveTo(px - 20, py + 40, px, py + 20);
+  ctx.quadraticCurveTo(px + 20, py + 40, px + 35, py + 15);
+  ctx.quadraticCurveTo(px + 15, py + 25, px, py + 10);
+  ctx.quadraticCurveTo(px - 15, py + 25, px - 35, py + 15);
+  ctx.fill();
+  
+  ctx.shadowBlur = 0;
 }
 
 // ---------- ИНИЦИАЛИЗАЦИЯ ----------
-const fogs  = OPT.fog  ? Array.from({length:16}, () => new Fog())  : [];
-const bats  = OPT.bats ? Array.from({length:7},  () => new Bat())  : [];
+const fogs  = OPT.fog  ? Array.from({length:18}, () => new Fog())  : [];
+const bats  = OPT.bats ? Array.from({length:6},  () => new Bat())  : [];
 const eyes  = OPT.eyes ? Array.from({length:4},  () => new Eyes()) : [];
-const blood = OPT.blood? Array.from({length:9},  () => new Blood()): [];
+const blood = OPT.blood? Array.from({length:10}, () => new Blood()): [];
+const embers = Array.from({length:30}, () => new Ember());
+const spider = new Spider();
 
 // ---------- ЦИКЛ ----------
 function loop() {
   ctx.clearRect(0, 0, W, H);
 
-  if (OPT.scene) {                       // тёмный фон для просмотра в браузере
+  if (OPT.scene) {
     ctx.fillStyle = '#08000f';
     ctx.fillRect(0, 0, W, H);
   }
 
-  // мягкий вигнет
-  const vg = ctx.createRadialGradient(
-    W / 2, H / 2, Math.min(W, H) * 0.35,
-    W / 2, H / 2, Math.max(W, H) * 0.85);
+  // Сильный вигнет (тёмные края)
+  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.8);
   vg.addColorStop(0, 'rgba(10,0,25,0)');
-  vg.addColorStop(1, 'rgba(10,0,25,0.22)');
+  vg.addColorStop(1, 'rgba(10,0,25,0.55)');
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
 
+  // Отрисовка слоев
   fogs.forEach(f => { f.update(); f.draw(); });
   if (OPT.moon) drawMoon();
+  embers.forEach(e => { e.update(); e.draw(); });
   blood.forEach(b => { b.update(); b.draw(); });
+  
+  drawPumpkin();
+  
   eyes.forEach(e  => { e.update(); e.draw();  });
   bats.forEach(b  => { b.update(); b.draw();  });
+  
+  spider.update();
+  spider.draw();
+
+  // Паутина по углам
+  drawCobweb(0, 0, 300, 0, Math.PI / 2); // Левый верх
+  drawCobweb(W, 0, 300, Math.PI / 2, Math.PI); // Правый верх
+
+  drawLightning();
 
   requestAnimationFrame(loop);
 }
