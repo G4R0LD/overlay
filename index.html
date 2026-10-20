@@ -17,10 +17,8 @@ const ctx = c.getContext('2d');
 
 const q = new URLSearchParams(location.search);
 const OPT = {
-  moon:  q.get('moon')  !== '0',
   bats:  q.get('bats')  !== '0',
   blood: q.get('blood') !== '0',
-  eyes:  q.get('eyes')  !== '0',
   scene: q.get('scene') === '1',
   lightning: q.get('lightning') !== '0',
   spider: q.get('spider') !== '0'
@@ -36,85 +34,104 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
-// ---------- ХОЛОДНАЯ ЛУНА ----------
-function drawMoon() {
-  const mx = W - 150, my = 120, mr = 50;
-  
-  const g = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 4);
-  g.addColorStop(0, 'rgba(150, 220, 255, 0.4)'); 
-  g.addColorStop(1, 'rgba(150, 220, 255, 0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(mx, my, mr * 4, 0, Math.PI * 2); ctx.fill();
-  
-  const m = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
-  m.addColorStop(0, '#ffffff'); 
-  m.addColorStop(0.7, '#d4ebff'); 
-  m.addColorStop(1, '#8bb8e8');
-  ctx.fillStyle = m; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
-  
-  ctx.fillStyle = 'rgba(120, 160, 200, 0.3)';
-  ctx.beginPath(); ctx.arc(mx - 15, my - 10, 10, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(mx + 15, my + 15, 7, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(mx + 5, my - 20, 5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(mx - 20, my + 20, 4, 0, Math.PI * 2); ctx.fill();
+// ---------- РЕАЛИСТИЧНАЯ МОЛНИЯ ----------
+let lightningActive = false;
+let lightningTimer = 0;
+let nextLightning = Math.random() * 500;
+let lightningPath = [];
+
+function triggerLightning() {
+  lightningActive = true;
+  lightningTimer = 12; // Длительность вспышки (кадры)
+  lightningPath = [];
+  let lx = Math.random() * W; // Начало в случайном месте сверху
+  let ly = 0;
+  lightningPath.push({x: lx, y: ly});
+  while (ly < H * 0.7) {
+    lx += (Math.random() - 0.5) * 60; // Зигзаги
+    ly += Math.random() * 40 + 20;
+    lightningPath.push({x: lx, y: ly});
+  }
 }
 
-// ---------- МОЛНИЯ (Замедлена) ----------
-let lightningAlpha = 0;
-let lightningTimer = Math.random() * 1000;
 function drawLightning() {
   if (!OPT.lightning) return;
-  lightningTimer--;
-  if (lightningTimer <= 0) {
-    lightningAlpha = 0.5 + Math.random() * 0.3;
-    lightningTimer = 1500 + Math.random() * 2000; // Реже
+  nextLightning--;
+  if (nextLightning <= 0) {
+    triggerLightning();
+    nextLightning = 800 + Math.random() * 2000; // Пауза между ударами
   }
-  if (lightningAlpha > 0) {
-    ctx.fillStyle = `rgba(200, 220, 255, ${lightningAlpha})`;
+  if (lightningActive) {
+    // Легкая синеватая засветка всего экрана
+    ctx.fillStyle = `rgba(180, 200, 255, ${(lightningTimer/12) * 0.15})`;
     ctx.fillRect(0, 0, W, H);
-    lightningAlpha -= 0.015; // Медленнее затухает
-    if (lightningAlpha < 0) lightningAlpha = 0;
+
+    // Сама молния
+    ctx.strokeStyle = `rgba(255, 255, 255, ${lightningTimer/12})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(lightningPath[0].x, lightningPath[0].y);
+    for(let i=1; i<lightningPath.length; i++) {
+      ctx.lineTo(lightningPath[i].x, lightningPath[i].y);
+    }
+    ctx.stroke();
+
+    // Свечение вокруг молнии
+    ctx.strokeStyle = `rgba(150, 200, 255, ${(lightningTimer/12) * 0.6})`;
+    ctx.lineWidth = 8;
+    ctx.stroke();
+
+    lightningTimer--;
+    if (lightningTimer <= 0) lightningActive = false;
   }
 }
 
-// ---------- ЗЕЛЁНЫЕ СВЕТЛЯЧКИ (Медленнее) ----------
+// ---------- ЗЕЛЁНЫЕ СВЕТЛЯЧКИ (Ярче и больше) ----------
 class Ember {
   constructor() { this.reset(); }
   reset() {
-    this.x = Math.random() * W; this.y = Math.random() * H;
-    this.size = 1 + Math.random() * 3; 
-    this.speedY = 0.05 + Math.random() * 0.2; // Было 0.2-0.8
+    this.x = Math.random() * W; 
+    this.y = H + Math.random() * 100; // Появляются снизу
+    this.size = 2 + Math.random() * 4; // Стали крупнее
+    this.speedY = 0.1 + Math.random() * 0.3; 
     this.speedX = (Math.random() - 0.5) * 0.3; 
-    this.alpha = 0.1 + Math.random() * 0.7;
+    this.alpha = 0.5 + Math.random() * 0.5; // Стали ярче
   }
   update() {
     this.y -= this.speedY; 
-    this.x += this.speedX + Math.sin(this.y * 0.01) * 0.3;
-    this.alpha += (Math.random() - 0.5) * 0.05;
-    this.alpha = Math.max(0.1, Math.min(0.9, this.alpha));
-    if (this.y < -10) this.reset();
+    this.x += this.speedX + Math.sin(this.y * 0.01) * 0.5;
+    this.alpha += (Math.random() - 0.5) * 0.02;
+    this.alpha = Math.max(0.3, Math.min(1.0, this.alpha));
+    if (this.y < -20) this.reset();
   }
   draw() {
-    const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 4);
-    g.addColorStop(0, `rgba(50, 255, 100, ${this.alpha})`); 
+    const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 6);
+    g.addColorStop(0, `rgba(100, 255, 100, ${this.alpha})`); 
+    g.addColorStop(0.4, `rgba(50, 200, 50, ${this.alpha * 0.5})`);
     g.addColorStop(1, 'rgba(0, 150, 0, 0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(this.x, this.y, this.size * 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = g; 
+    ctx.beginPath(); 
+    ctx.arc(this.x, this.y, this.size * 6, 0, Math.PI * 2); 
+    ctx.fill();
   }
 }
 
-// ---------- МЫШИ (Замедлены) ----------
+// ---------- МЫШИ (Летают сверху) ----------
 class Bat {
   constructor() { this.reset(); }
   reset() {
     this.dir = Math.random() < 0.5 ? 1 : -1;
     this.x = this.dir === 1 ? -60 : W + 60;
-    this.baseY = 60 + Math.random() * (H - 120); this.y = this.baseY;
+    // Ограничиваем полет верхней третью экрана
+    this.baseY = 20 + Math.random() * (H * 0.35); 
+    this.y = this.baseY;
     this.size = 10 + Math.random() * 14; 
-    this.speed = 0.4 + Math.random() * 0.8; // Было 1.5-4.0
+    this.speed = 0.5 + Math.random() * 1.0; 
     this.t = Math.random() * 100; 
     this.amp = 8 + Math.random() * 25;
   }
   update() {
-    this.t += 0.05; // Медленнее взмахи
+    this.t += 0.05; 
     this.x += this.speed * this.dir;
     this.y = this.baseY + Math.sin(this.t) * this.amp;
     if ((this.dir === 1 && this.x > W + 80) || (this.dir === -1 && this.x < -80)) this.reset();
@@ -132,73 +149,54 @@ class Bat {
   }
 }
 
-// ---------- ГЛАЗА В ТЕМНОТЕ (Медленнее) ----------
-class Eyes {
-  constructor() { this.respawn(true); }
-  respawn(init = false) {
-    this.x = 60 + Math.random() * (W - 120);
-    this.y = 60 + Math.random() * (H - 120);
-    this.gap  = 14 + Math.random() * 18;
-    this.size = 4 + Math.random() * 7;
-    this.life = 0; 
-    this.maxLife = 400 + Math.random() * 500; // Живут намного дольше
-    this.delay = init ? Math.random() * 500 : 200 + Math.random() * 800;
-  }
-  update() {
-    if (this.delay > 0) { this.delay--; return; }
-    this.life++;
-    if (this.life > this.maxLife) this.respawn();
-  }
-  draw() {
-    if (this.delay > 0 || this.life <= 0) return;
-    const p = this.life / this.maxLife;
-    const alpha = Math.sin(p * Math.PI); // Плавное появление и исчезновение
-    const blink = (Math.sin(this.life * 0.03) > 0.95) ? 0.05 : 1; // Редкое моргание
-    const g1 = ctx.createRadialGradient(this.x - this.gap / 2, this.y, 0, this.x - this.gap / 2, this.y, this.size * 5);
-    g1.addColorStop(0, `rgba(255,50,0,${0.55 * alpha})`); g1.addColorStop(1, 'rgba(255,50,0,0)');
-    ctx.fillStyle = g1; ctx.beginPath(); ctx.arc(this.x - this.gap / 2, this.y, this.size * 5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(this.x + this.gap / 2, this.y, this.size * 5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = `rgba(255,90,20,${alpha * blink})`;
-    ctx.beginPath(); ctx.ellipse(this.x - this.gap / 2, this.y, this.size * 0.6, this.size * blink, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(this.x + this.gap / 2, this.y, this.size * 0.6, this.size * blink, 0, 0, Math.PI * 2); ctx.fill();
-  }
-}
-
-// ---------- ТЯГУЧАЯ КРОВЬ ----------
+// ---------- ТЯГУЧАЯ КРОВЬ (Извилистая, с каплей) ----------
 class Blood {
   constructor() { this.respawn(); }
   respawn() {
-    this.x = Math.random() * W; this.y = -10; this.len = 0;
-    this.maxLen = 50 + Math.random() * 150; 
-    this.speed = 0.05 + Math.random() * 0.15; // ОЧЕНЬ медленно (было 0.4-1.4)
-    this.width = 3 + Math.random() * 4; 
-    this.active = false;
-    this.timer = 300 + Math.random() * 1000; // Долго ждет перед появлением
+    this.x = Math.random() * W; 
+    this.y = -10; 
+    this.len = 0;
+    this.maxLen = 100 + Math.random() * 250; 
+    this.speed = 0.15 + Math.random() * 0.25; 
+    this.width = 4 + Math.random() * 5; 
+    this.timer = Math.random() * 800;
+    this.wobblePhase = Math.random() * Math.PI * 2;
   }
   update() {
     if (this.timer > 0) { this.timer--; return; }
-    if (!this.active) this.active = true;
     this.len += this.speed;
+    this.wobblePhase += 0.03; // Плавное покачивание
     if (this.len > this.maxLen) { 
-      this.width -= 0.01; // Очень медленно утончается
+      this.width -= 0.01; 
       if (this.width <= 0) this.respawn(); 
     }
   }
   draw() {
     if (this.len <= 0 || this.width <= 0) return;
-    const g = ctx.createLinearGradient(0, this.y, 0, this.y + this.len);
-    g.addColorStop(0, 'rgba(90,0,0,0.95)'); 
-    g.addColorStop(0.6, 'rgba(160,10,10,0.85)'); 
-    g.addColorStop(1, 'rgba(120,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(this.x - this.width / 2, this.y);
-    ctx.lineTo(this.x - this.width * 0.15, this.y + this.len * 0.85);
-    ctx.arc(this.x, this.y + this.len * 0.85, this.width * 0.55, Math.PI, 0);
-    ctx.lineTo(this.x + this.width / 2, this.y); ctx.fill();
+    
+    const wobbleX = Math.sin(this.wobblePhase) * 4; // Смещение извилины
+    const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.len);
+    gradient.addColorStop(0, 'rgba(100,0,0,0.95)'); 
+    gradient.addColorStop(1, 'rgba(180,10,10,0.85)'); 
+    ctx.fillStyle = gradient;
+
+    // Тело капли (изогнутое)
+    ctx.beginPath();
+    const w = this.width;
+    ctx.moveTo(this.x - w/2, this.y);
+    ctx.quadraticCurveTo(this.x - w/2 + wobbleX, this.y + this.len/2, this.x - w/4 + wobbleX, this.y + this.len);
+    ctx.arc(this.x + wobbleX, this.y + this.len, w/2, Math.PI, 0);
+    ctx.quadraticCurveTo(this.x + w/2 + wobbleX, this.y + this.len/2, this.x + w/2, this.y);
+    ctx.fill();
+
+    // Объемная капля на конце
+    ctx.beginPath();
+    ctx.arc(this.x + wobbleX, this.y + this.len + w/4, w/3, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-// ---------- ПАУК (Медленнее) ----------
+// ---------- ПАУК ----------
 class Spider {
   constructor() {
     this.x = W * 0.15; this.y = -20;
@@ -208,13 +206,13 @@ class Spider {
   update() {
     if (!OPT.spider) return;
     if (this.state === 0) {
-      this.y += 0.15; // Медленный спуск
-      if (this.y >= this.targetY) { this.state = 1; this.timer = 600; } // Долго висит
+      this.y += 0.15; 
+      if (this.y >= this.targetY) { this.state = 1; this.timer = 600; } 
     } else if (this.state === 1) {
       this.timer--;
       if (this.timer <= 0) this.state = 2;
     } else if (this.state === 2) {
-      this.y -= 0.4; // Медленный подъем
+      this.y -= 0.4; 
       if (this.y < -50) {
         this.targetY = 150 + Math.random() * 200;
         this.x = W * 0.1 + Math.random() * W * 0.8;
@@ -238,10 +236,9 @@ class Spider {
 }
 
 // ---------- ИНИЦИАЛИЗАЦИЯ ----------
-const bats  = OPT.bats ? Array.from({length:5},  () => new Bat())  : []; // Уменьшил количество мышей с 6 до 5
-const eyes  = OPT.eyes ? Array.from({length:3},  () => new Eyes()) : []; // Уменьшил количество глаз с 4 до 3
-const blood = OPT.blood? Array.from({length:8}, () => new Blood()): []; // Уменьшил количество капель
-const embers = Array.from({length:25}, () => new Ember()); // Светлячков тоже стало чуть меньше
+const bats  = OPT.bats ? Array.from({length:5},  () => new Bat())  : []; 
+const blood = OPT.blood? Array.from({length:10}, () => new Blood()): []; // Чуть больше капель
+const embers = Array.from({length:60}, () => new Ember()); // 60 светлячков
 const spider = new Spider();
 
 // ---------- ЦИКЛ ----------
@@ -255,16 +252,14 @@ function loop() {
   vg.addColorStop(1, 'rgba(5, 10, 20, 0.6)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-  if (OPT.moon) drawMoon();
-  
+  // Отрисовка
   embers.forEach(e => { e.update(); e.draw(); });
   blood.forEach(b => { b.update(); b.draw(); });
-  eyes.forEach(e  => { e.update(); e.draw();  });
   bats.forEach(b  => { b.update(); b.draw();  });
   
   spider.update(); spider.draw();
-
   drawLightning();
+
   requestAnimationFrame(loop);
 }
 loop();
