@@ -21,7 +21,6 @@ const OPT = {
   bats:  q.get('bats')  !== '0',
   blood: q.get('blood') !== '0',
   eyes:  q.get('eyes')  !== '0',
-  fog:   q.get('fog')   !== '0',
   scene: q.get('scene') === '1',
   lightning: q.get('lightning') !== '0',
   spider: q.get('spider') !== '0'
@@ -37,44 +36,21 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
-// ---------- ТВОЯ ТЫКВА ----------
-const pumpkinImg = new Image();
-pumpkinImg.src = 'pumpkin.png';
-
-function drawPumpkin() {
-  if (!pumpkinImg.complete) return;
-  const px = 30, py = H - 200, size = 160;
-  
-  // Оранжевое свечение (чтобы контрастировало с синим фоном)
-  const time = Date.now() / 600;
-  const pulse = Math.sin(time) * 0.15 + 0.85;
-  const g = ctx.createRadialGradient(px + size/2, py + size/2, 0, px + size/2, py + size/2, size * 1.8 * pulse);
-  g.addColorStop(0, 'rgba(255, 100, 0, 0.45)');
-  g.addColorStop(1, 'rgba(255, 100, 0, 0)');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(px + size/2, py + size/2, size * 1.8 * pulse, 0, Math.PI * 2); ctx.fill();
-
-  ctx.drawImage(pumpkinImg, px, py, size, size);
-}
-
-// ---------- ХОЛОДНАЯ ЛУНА (ВМЕСТО КРАСНОЙ) ----------
+// ---------- ХОЛОДНАЯ ЛУНА ----------
 function drawMoon() {
   const mx = W - 150, my = 120, mr = 50;
   
-  // Голубоватое сияние
   const g = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 4);
   g.addColorStop(0, 'rgba(150, 220, 255, 0.4)'); 
   g.addColorStop(1, 'rgba(150, 220, 255, 0)');
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(mx, my, mr * 4, 0, Math.PI * 2); ctx.fill();
   
-  // Тело луны
   const m = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
   m.addColorStop(0, '#ffffff'); 
   m.addColorStop(0.7, '#d4ebff'); 
   m.addColorStop(1, '#8bb8e8');
   ctx.fillStyle = m; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
   
-  // Кратеры
   ctx.fillStyle = 'rgba(120, 160, 200, 0.3)';
   ctx.beginPath(); ctx.arc(mx - 15, my - 10, 10, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(mx + 15, my + 15, 7, 0, Math.PI * 2); ctx.fill();
@@ -82,180 +58,64 @@ function drawMoon() {
   ctx.beginPath(); ctx.arc(mx - 20, my + 20, 4, 0, Math.PI * 2); ctx.fill();
 }
 
-// ---------- АНИМИРОВАННЫЕ СВЕЧИ ----------
-class Candle {
-  constructor(x, y, size) {
-    this.x = x;
-    this.y = y;
-    this.size = size;
-    this.time = Math.random() * 100;
-  }
-  update() {
-    this.time += 0.05;
-  }
-  draw() {
-    // Свечение от пламени
-    const flicker = Math.sin(this.time * 5) * 2 + Math.sin(this.time * 12) * 1;
-    const glowY = this.y - this.size - 15 + flicker;
-    const g = ctx.createRadialGradient(this.x, glowY, 0, this.x, glowY, this.size * 3);
-    g.addColorStop(0, 'rgba(255, 150, 50, 0.4)');
-    g.addColorStop(1, 'rgba(255, 150, 50, 0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(this.x, glowY, this.size * 3, 0, Math.PI * 2); ctx.fill();
-
-    // Тело свечи (воск)
-    ctx.fillStyle = '#e6e6e6';
-    ctx.beginPath();
-    ctx.moveTo(this.x - this.size/2, this.y);
-    ctx.lineTo(this.x - this.size/2, this.y - this.size * 2);
-    // Стекающий воск
-    ctx.quadraticCurveTo(this.x - this.size/1.5, this.y - this.size * 2.5, this.x - this.size/2, this.y - this.size * 1.8);
-    ctx.lineTo(this.x + this.size/2, this.y - this.size * 1.8);
-    ctx.quadraticCurveTo(this.x + this.size/1.5, this.y - this.size * 2.2, this.x + this.size/2, this.y - this.size * 2);
-    ctx.lineTo(this.x + this.size/2, this.y);
-    ctx.fill();
-
-    // Фитиль
-    ctx.strokeStyle = '#222'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(this.x, this.y - this.size * 2); ctx.lineTo(this.x, this.y - this.size * 2 - 5); ctx.stroke();
-
-    // Пламя
-    ctx.fillStyle = '#ff9900';
-    ctx.beginPath();
-    ctx.moveTo(this.x, this.y - this.size * 2 - 15 + flicker); // Верхушка
-    ctx.quadraticCurveTo(this.x + 8, this.y - this.size * 2 - 5, this.x, this.y - this.size * 2 - 2);
-    ctx.quadraticCurveTo(this.x - 8, this.y - this.size * 2 - 5, this.x, this.y - this.size * 2 - 15 + flicker);
-    ctx.fill();
-    
-    // Яркое ядро пламени
-    ctx.fillStyle = '#ffff66';
-    ctx.beginPath(); ctx.ellipse(this.x, this.y - this.size * 2 - 7 + flicker, 3, 5, 0, 0, Math.PI * 2); ctx.fill();
-  }
-}
-const candles = [
-  new Candle(210, H - 30, 20), // Рядом с тыквой
-  new Candle(W - 80, H - 40, 25) // Справа внизу
-];
-
-// ---------- ЧЕРЕПА ----------
-function drawSkull(sx, sy, scale, alpha) {
-  ctx.save();
-  ctx.translate(sx, sy);
-  ctx.scale(scale, scale);
-  ctx.globalAlpha = alpha;
-  
-  // Форма черепа
-  ctx.fillStyle = 'rgba(200, 210, 220, 0.85)';
-  ctx.shadowColor = 'rgba(100, 200, 255, 0.5)'; // Холодное свечение
-  ctx.shadowBlur = 15;
-  ctx.beginPath();
-  ctx.moveTo(0, -30); // Верх
-  ctx.bezierCurveTo(-30, -30, -40, 0, -30, 20); // Левая скула
-  ctx.lineTo(-20, 30); // Левая челюсть
-  ctx.quadraticCurveTo(0, 45, 20, 30); // Подбородок
-  ctx.lineTo(30, 20); // Правая скула
-  ctx.bezierCurveTo(40, 0, 30, -30, 0, -30); // Правая сторона
-  ctx.fill();
-  
-  // Глазницы (черные дыры)
-  ctx.fillStyle = '#000';
-  ctx.shadowBlur = 0;
-  ctx.beginPath(); ctx.ellipse(-12, 0, 8, 10, 0.2, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(12, 0, 8, 10, -0.2, 0, Math.PI * 2); ctx.fill();
-  
-  // Нос
-  ctx.beginPath();
-  ctx.moveTo(0, 8); ctx.lineTo(-5, 20); ctx.lineTo(5, 20);
-  ctx.fill();
-  
-  // Зубы
-  ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)'; ctx.lineWidth = 2;
-  for(let i = -12; i <= 12; i+=6) {
-    ctx.beginPath(); ctx.moveTo(i, 25); ctx.lineTo(i, 32); ctx.stroke();
-  }
-  
-  // Трещины на черепе
-  ctx.strokeStyle = 'rgba(100, 120, 140, 0.6)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(-10, -20); ctx.lineTo(-5, -5); ctx.lineTo(-15, 5); ctx.stroke();
-  
-  ctx.restore();
-}
-
-// ---------- МОЛНИЯ ----------
+// ---------- МОЛНИЯ (Замедлена) ----------
 let lightningAlpha = 0;
-let lightningTimer = Math.random() * 600;
+let lightningTimer = Math.random() * 1000;
 function drawLightning() {
   if (!OPT.lightning) return;
   lightningTimer--;
   if (lightningTimer <= 0) {
-    lightningAlpha = 0.6 + Math.random() * 0.4;
-    lightningTimer = 400 + Math.random() * 800; 
+    lightningAlpha = 0.5 + Math.random() * 0.3;
+    lightningTimer = 1500 + Math.random() * 2000; // Реже
   }
   if (lightningAlpha > 0) {
     ctx.fillStyle = `rgba(200, 220, 255, ${lightningAlpha})`;
     ctx.fillRect(0, 0, W, H);
-    lightningAlpha -= 0.05;
+    lightningAlpha -= 0.015; // Медленнее затухает
     if (lightningAlpha < 0) lightningAlpha = 0;
   }
 }
 
-// ---------- ТУМАН ----------
-class Fog {
-  constructor() { this.respawn(); }
-  respawn() {
-    this.x = Math.random() * W; this.y = Math.random() * H;
-    this.r = 200 + Math.random() * 300;
-    this.vx = (Math.random() - 0.5) * 0.4; this.vy = (Math.random() - 0.5) * 0.15;
-    this.a  = 0.02 + Math.random() * 0.05; this.hue = 200 + Math.random() * 60; // Сине-голубой туман
-  }
-  update() {
-    this.x += this.vx; this.y += this.vy;
-    if (this.x < -this.r) this.x = W + this.r;
-    if (this.x > W + this.r) this.x = -this.r;
-    if (this.y < -this.r) this.y = H + this.r;
-    if (this.y > H + this.r) this.y = -this.r;
-  }
-  draw() {
-    const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
-    g.addColorStop(0, `hsla(${this.hue},80%,60%,${this.a})`);
-    g.addColorStop(1, `hsla(${this.hue},80%,60%,0)`);
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
-  }
-}
-
-// ---------- СВЕТЛЯЧКИ ----------
+// ---------- ЗЕЛЁНЫЕ СВЕТЛЯЧКИ (Медленнее) ----------
 class Ember {
   constructor() { this.reset(); }
   reset() {
     this.x = Math.random() * W; this.y = Math.random() * H;
-    this.size = 1 + Math.random() * 3; this.speedY = 0.2 + Math.random() * 0.8;
-    this.speedX = (Math.random() - 0.5) * 0.5; this.alpha = 0.1 + Math.random() * 0.7;
+    this.size = 1 + Math.random() * 3; 
+    this.speedY = 0.05 + Math.random() * 0.2; // Было 0.2-0.8
+    this.speedX = (Math.random() - 0.5) * 0.3; 
+    this.alpha = 0.1 + Math.random() * 0.7;
   }
   update() {
-    this.y -= this.speedY; this.x += this.speedX + Math.sin(this.y * 0.01) * 0.5;
-    this.alpha += (Math.random() - 0.5) * 0.1;
+    this.y -= this.speedY; 
+    this.x += this.speedX + Math.sin(this.y * 0.01) * 0.3;
+    this.alpha += (Math.random() - 0.5) * 0.05;
     this.alpha = Math.max(0.1, Math.min(0.9, this.alpha));
     if (this.y < -10) this.reset();
   }
   draw() {
     const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 4);
-    g.addColorStop(0, `rgba(255, 120, 0, ${this.alpha})`); // Оранжевые искры для контраста
-    g.addColorStop(1, 'rgba(255, 50, 0, 0)');
+    g.addColorStop(0, `rgba(50, 255, 100, ${this.alpha})`); 
+    g.addColorStop(1, 'rgba(0, 150, 0, 0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(this.x, this.y, this.size * 4, 0, Math.PI * 2); ctx.fill();
   }
 }
 
-// ---------- МЫШИ ----------
+// ---------- МЫШИ (Замедлены) ----------
 class Bat {
   constructor() { this.reset(); }
   reset() {
     this.dir = Math.random() < 0.5 ? 1 : -1;
     this.x = this.dir === 1 ? -60 : W + 60;
     this.baseY = 60 + Math.random() * (H - 120); this.y = this.baseY;
-    this.size = 10 + Math.random() * 14; this.speed = 1.5 + Math.random() * 2.5;
-    this.t = Math.random() * 100; this.amp = 8 + Math.random() * 25;
+    this.size = 10 + Math.random() * 14; 
+    this.speed = 0.4 + Math.random() * 0.8; // Было 1.5-4.0
+    this.t = Math.random() * 100; 
+    this.amp = 8 + Math.random() * 25;
   }
   update() {
-    this.t += 0.1; this.x += this.speed * this.dir;
+    this.t += 0.05; // Медленнее взмахи
+    this.x += this.speed * this.dir;
     this.y = this.baseY + Math.sin(this.t) * this.amp;
     if ((this.dir === 1 && this.x > W + 80) || (this.dir === -1 && this.x < -80)) this.reset();
   }
@@ -272,7 +132,73 @@ class Bat {
   }
 }
 
-// ---------- ПАУК ----------
+// ---------- ГЛАЗА В ТЕМНОТЕ (Медленнее) ----------
+class Eyes {
+  constructor() { this.respawn(true); }
+  respawn(init = false) {
+    this.x = 60 + Math.random() * (W - 120);
+    this.y = 60 + Math.random() * (H - 120);
+    this.gap  = 14 + Math.random() * 18;
+    this.size = 4 + Math.random() * 7;
+    this.life = 0; 
+    this.maxLife = 400 + Math.random() * 500; // Живут намного дольше
+    this.delay = init ? Math.random() * 500 : 200 + Math.random() * 800;
+  }
+  update() {
+    if (this.delay > 0) { this.delay--; return; }
+    this.life++;
+    if (this.life > this.maxLife) this.respawn();
+  }
+  draw() {
+    if (this.delay > 0 || this.life <= 0) return;
+    const p = this.life / this.maxLife;
+    const alpha = Math.sin(p * Math.PI); // Плавное появление и исчезновение
+    const blink = (Math.sin(this.life * 0.03) > 0.95) ? 0.05 : 1; // Редкое моргание
+    const g1 = ctx.createRadialGradient(this.x - this.gap / 2, this.y, 0, this.x - this.gap / 2, this.y, this.size * 5);
+    g1.addColorStop(0, `rgba(255,50,0,${0.55 * alpha})`); g1.addColorStop(1, 'rgba(255,50,0,0)');
+    ctx.fillStyle = g1; ctx.beginPath(); ctx.arc(this.x - this.gap / 2, this.y, this.size * 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(this.x + this.gap / 2, this.y, this.size * 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = `rgba(255,90,20,${alpha * blink})`;
+    ctx.beginPath(); ctx.ellipse(this.x - this.gap / 2, this.y, this.size * 0.6, this.size * blink, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(this.x + this.gap / 2, this.y, this.size * 0.6, this.size * blink, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ---------- ТЯГУЧАЯ КРОВЬ ----------
+class Blood {
+  constructor() { this.respawn(); }
+  respawn() {
+    this.x = Math.random() * W; this.y = -10; this.len = 0;
+    this.maxLen = 50 + Math.random() * 150; 
+    this.speed = 0.05 + Math.random() * 0.15; // ОЧЕНЬ медленно (было 0.4-1.4)
+    this.width = 3 + Math.random() * 4; 
+    this.active = false;
+    this.timer = 300 + Math.random() * 1000; // Долго ждет перед появлением
+  }
+  update() {
+    if (this.timer > 0) { this.timer--; return; }
+    if (!this.active) this.active = true;
+    this.len += this.speed;
+    if (this.len > this.maxLen) { 
+      this.width -= 0.01; // Очень медленно утончается
+      if (this.width <= 0) this.respawn(); 
+    }
+  }
+  draw() {
+    if (this.len <= 0 || this.width <= 0) return;
+    const g = ctx.createLinearGradient(0, this.y, 0, this.y + this.len);
+    g.addColorStop(0, 'rgba(90,0,0,0.95)'); 
+    g.addColorStop(0.6, 'rgba(160,10,10,0.85)'); 
+    g.addColorStop(1, 'rgba(120,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(this.x - this.width / 2, this.y);
+    ctx.lineTo(this.x - this.width * 0.15, this.y + this.len * 0.85);
+    ctx.arc(this.x, this.y + this.len * 0.85, this.width * 0.55, Math.PI, 0);
+    ctx.lineTo(this.x + this.width / 2, this.y); ctx.fill();
+  }
+}
+
+// ---------- ПАУК (Медленнее) ----------
 class Spider {
   constructor() {
     this.x = W * 0.15; this.y = -20;
@@ -282,13 +208,13 @@ class Spider {
   update() {
     if (!OPT.spider) return;
     if (this.state === 0) {
-      this.y += 0.5;
-      if (this.y >= this.targetY) { this.state = 1; this.timer = 300; }
+      this.y += 0.15; // Медленный спуск
+      if (this.y >= this.targetY) { this.state = 1; this.timer = 600; } // Долго висит
     } else if (this.state === 1) {
       this.timer--;
       if (this.timer <= 0) this.state = 2;
     } else if (this.state === 2) {
-      this.y -= 1.5;
+      this.y -= 0.4; // Медленный подъем
       if (this.y < -50) {
         this.targetY = 150 + Math.random() * 200;
         this.x = W * 0.1 + Math.random() * W * 0.8;
@@ -311,35 +237,11 @@ class Spider {
   }
 }
 
-// ---------- ПАУТИНА ----------
-function drawCobweb(cx, cy, radius, angleStart, angleEnd) {
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5;
-  const rays = 5;
-  for (let i = 0; i <= rays; i++) {
-    const angle = angleStart + (angleEnd - angleStart) * (i / rays);
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius); ctx.stroke();
-  }
-  for (let r = radius * 0.2; r <= radius; r += radius * 0.25) {
-    ctx.beginPath();
-    for (let i = 0; i <= rays; i++) {
-      const angle = angleStart + (angleEnd - angleStart) * (i / rays);
-      const px = cx + Math.cos(angle) * r, py = cy + Math.sin(angle) * r;
-      if (i === 0) ctx.moveTo(px, py);
-      else {
-        const prevAngle = angleStart + (angleEnd - angleStart) * ((i - 1) / rays);
-        const ctrlX = cx + Math.cos((angle + prevAngle) / 2) * r * 0.8;
-        const ctrlY = cy + Math.sin((angle + prevAngle) / 2) * r * 0.8;
-        ctx.quadraticCurveTo(ctrlX, ctrlY, px, py);
-      }
-    }
-    ctx.stroke();
-  }
-}
-
 // ---------- ИНИЦИАЛИЗАЦИЯ ----------
-const fogs  = OPT.fog  ? Array.from({length:18}, () => new Fog())  : [];
-const bats  = OPT.bats ? Array.from({length:6},  () => new Bat())  : [];
-const embers = Array.from({length:30}, () => new Ember());
+const bats  = OPT.bats ? Array.from({length:5},  () => new Bat())  : []; // Уменьшил количество мышей с 6 до 5
+const eyes  = OPT.eyes ? Array.from({length:3},  () => new Eyes()) : []; // Уменьшил количество глаз с 4 до 3
+const blood = OPT.blood? Array.from({length:8}, () => new Blood()): []; // Уменьшил количество капель
+const embers = Array.from({length:25}, () => new Ember()); // Светлячков тоже стало чуть меньше
 const spider = new Spider();
 
 // ---------- ЦИКЛ ----------
@@ -347,30 +249,20 @@ function loop() {
   ctx.clearRect(0, 0, W, H);
   if (OPT.scene) { ctx.fillStyle = '#08000f'; ctx.fillRect(0, 0, W, H); }
 
-  // Холодный вигнет под цвет твоего фона
+  // Холодный вигнет
   const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.8);
   vg.addColorStop(0, 'rgba(5, 10, 20, 0)');
   vg.addColorStop(1, 'rgba(5, 10, 20, 0.6)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-  fogs.forEach(f => { f.update(); f.draw(); });
   if (OPT.moon) drawMoon();
+  
   embers.forEach(e => { e.update(); e.draw(); });
-  
-  drawPumpkin();
-  
-  // Рисуем черепа (левый спрятан за тыквой, правый чуть выглядывает)
-  drawSkull(120, H - 70, 1.2, 0.9); 
-  drawSkull(W - 220, H - 50, 1.8, 0.8);
-
-  // Свечи
-  candles.forEach(c => { c.update(); c.draw(); });
-  
+  blood.forEach(b => { b.update(); b.draw(); });
+  eyes.forEach(e  => { e.update(); e.draw();  });
   bats.forEach(b  => { b.update(); b.draw();  });
+  
   spider.update(); spider.draw();
-
-  drawCobweb(0, 0, 300, 0, Math.PI / 2); 
-  drawCobweb(W, 0, 300, Math.PI / 2, Math.PI); 
 
   drawLightning();
   requestAnimationFrame(loop);
