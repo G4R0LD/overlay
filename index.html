@@ -34,21 +34,25 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
-// ---------- РЕАЛИСТИЧНАЯ МОЛНИЯ ----------
+// ---------- МОЛНИЯ (Далекая, мягкая) ----------
 let lightningActive = false;
 let lightningTimer = 0;
-let nextLightning = Math.random() * 500;
+let nextLightning = Math.random() * 300;
 let lightningPath = [];
 
 function triggerLightning() {
   lightningActive = true;
-  lightningTimer = 12; // Длительность вспышки (кадры)
+  lightningTimer = 15; // Чуть дольше держится
   lightningPath = [];
-  let lx = Math.random() * W; // Начало в случайном месте сверху
+  let lx = Math.random() * W; 
   let ly = 0;
   lightningPath.push({x: lx, y: ly});
-  while (ly < H * 0.7) {
-    lx += (Math.random() - 0.5) * 60; // Зигзаги
+  
+  // Ограничиваем длину молнии верхней третью экрана
+  const maxY = H * 0.3 + Math.random() * (H * 0.2); 
+  
+  while (ly < maxY) {
+    lx += (Math.random() - 0.5) * 50; // Зигзаги
     ly += Math.random() * 40 + 20;
     lightningPath.push({x: lx, y: ly});
   }
@@ -59,16 +63,21 @@ function drawLightning() {
   nextLightning--;
   if (nextLightning <= 0) {
     triggerLightning();
-    nextLightning = 800 + Math.random() * 2000; // Пауза между ударами
+    nextLightning = 1200 + Math.random() * 3000; // Реже
   }
   if (lightningActive) {
-    // Легкая синеватая засветка всего экрана
-    ctx.fillStyle = `rgba(180, 200, 255, ${(lightningTimer/12) * 0.15})`;
+    const alpha = lightningTimer / 15;
+
+    // Мягкая засветка неба
+    const grad = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+    grad.addColorStop(0, `rgba(200, 220, 255, ${alpha * 0.15})`);
+    grad.addColorStop(1, 'rgba(200, 220, 255, 0)');
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
 
-    // Сама молния
-    ctx.strokeStyle = `rgba(255, 255, 255, ${lightningTimer/12})`;
-    ctx.lineWidth = 2;
+    // Свечение вокруг молнии
+    ctx.strokeStyle = `rgba(150, 200, 255, ${alpha * 0.3})`;
+    ctx.lineWidth = 6;
     ctx.beginPath();
     ctx.moveTo(lightningPath[0].x, lightningPath[0].y);
     for(let i=1; i<lightningPath.length; i++) {
@@ -76,9 +85,9 @@ function drawLightning() {
     }
     ctx.stroke();
 
-    // Свечение вокруг молнии
-    ctx.strokeStyle = `rgba(150, 200, 255, ${(lightningTimer/12) * 0.6})`;
-    ctx.lineWidth = 8;
+    // Ядро молнии
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
     lightningTimer--;
@@ -86,23 +95,24 @@ function drawLightning() {
   }
 }
 
-// ---------- ЗЕЛЁНЫЕ СВЕТЛЯЧКИ (Ярче и больше) ----------
+// ---------- ЗЕЛЁНЫЕ СВЕТЛЯЧКИ ----------
 class Ember {
-  constructor() { this.reset(); }
-  reset() {
+  constructor() { this.reset(true); }
+  reset(init = false) {
     this.x = Math.random() * W; 
-    this.y = H + Math.random() * 100; // Появляются снизу
-    this.size = 2 + Math.random() * 4; // Стали крупнее
+    // Если это первый запуск - распределяем по всему экрану
+    this.y = init ? Math.random() * H : H + Math.random() * 50; 
+    this.size = 2 + Math.random() * 4; 
     this.speedY = 0.1 + Math.random() * 0.3; 
     this.speedX = (Math.random() - 0.5) * 0.3; 
-    this.alpha = 0.5 + Math.random() * 0.5; // Стали ярче
+    this.alpha = 0.5 + Math.random() * 0.5; 
   }
   update() {
     this.y -= this.speedY; 
     this.x += this.speedX + Math.sin(this.y * 0.01) * 0.5;
     this.alpha += (Math.random() - 0.5) * 0.02;
     this.alpha = Math.max(0.3, Math.min(1.0, this.alpha));
-    if (this.y < -20) this.reset();
+    if (this.y < -20) this.reset(false);
   }
   draw() {
     const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 6);
@@ -116,13 +126,12 @@ class Ember {
   }
 }
 
-// ---------- МЫШИ (Летают сверху) ----------
+// ---------- МЫШИ ----------
 class Bat {
   constructor() { this.reset(); }
   reset() {
     this.dir = Math.random() < 0.5 ? 1 : -1;
     this.x = this.dir === 1 ? -60 : W + 60;
-    // Ограничиваем полет верхней третью экрана
     this.baseY = 20 + Math.random() * (H * 0.35); 
     this.y = this.baseY;
     this.size = 10 + Math.random() * 14; 
@@ -149,23 +158,21 @@ class Bat {
   }
 }
 
-// ---------- ТЯГУЧАЯ КРОВЬ (Извилистая, с каплей) ----------
+// ---------- КРОВЬ (Гладкая, тягучая) ----------
 class Blood {
   constructor() { this.respawn(); }
   respawn() {
     this.x = Math.random() * W; 
     this.y = -10; 
     this.len = 0;
-    this.maxLen = 100 + Math.random() * 250; 
-    this.speed = 0.15 + Math.random() * 0.25; 
-    this.width = 4 + Math.random() * 5; 
+    this.maxLen = 80 + Math.random() * 200; 
+    this.speed = 0.1 + Math.random() * 0.2; 
+    this.width = 3 + Math.random() * 4; 
     this.timer = Math.random() * 800;
-    this.wobblePhase = Math.random() * Math.PI * 2;
   }
   update() {
     if (this.timer > 0) { this.timer--; return; }
     this.len += this.speed;
-    this.wobblePhase += 0.03; // Плавное покачивание
     if (this.len > this.maxLen) { 
       this.width -= 0.01; 
       if (this.width <= 0) this.respawn(); 
@@ -174,24 +181,21 @@ class Blood {
   draw() {
     if (this.len <= 0 || this.width <= 0) return;
     
-    const wobbleX = Math.sin(this.wobblePhase) * 4; // Смещение извилины
+    // Темно-красный градиент
     const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.len);
-    gradient.addColorStop(0, 'rgba(100,0,0,0.95)'); 
-    gradient.addColorStop(1, 'rgba(180,10,10,0.85)'); 
+    gradient.addColorStop(0, 'rgba(60,0,0,0.9)'); 
+    gradient.addColorStop(0.8, 'rgba(120,0,0,0.9)'); 
+    gradient.addColorStop(1, 'rgba(160,0,0,0.9)'); 
     ctx.fillStyle = gradient;
 
-    // Тело капли (изогнутое)
+    // Гладкая форма капли
     ctx.beginPath();
     const w = this.width;
     ctx.moveTo(this.x - w/2, this.y);
-    ctx.quadraticCurveTo(this.x - w/2 + wobbleX, this.y + this.len/2, this.x - w/4 + wobbleX, this.y + this.len);
-    ctx.arc(this.x + wobbleX, this.y + this.len, w/2, Math.PI, 0);
-    ctx.quadraticCurveTo(this.x + w/2 + wobbleX, this.y + this.len/2, this.x + w/2, this.y);
-    ctx.fill();
-
-    // Объемная капля на конце
-    ctx.beginPath();
-    ctx.arc(this.x + wobbleX, this.y + this.len + w/4, w/3, 0, Math.PI * 2);
+    ctx.lineTo(this.x - w*0.15, this.y + this.len);
+    // Круглая капля на конце
+    ctx.arc(this.x, this.y + this.len, w*0.4, Math.PI, 0);
+    ctx.lineTo(this.x + w/2, this.y);
     ctx.fill();
   }
 }
@@ -237,8 +241,8 @@ class Spider {
 
 // ---------- ИНИЦИАЛИЗАЦИЯ ----------
 const bats  = OPT.bats ? Array.from({length:5},  () => new Bat())  : []; 
-const blood = OPT.blood? Array.from({length:10}, () => new Blood()): []; // Чуть больше капель
-const embers = Array.from({length:60}, () => new Ember()); // 60 светлячков
+const blood = OPT.blood? Array.from({length:8}, () => new Blood()): []; 
+const embers = Array.from({length:60}, () => new Ember()); 
 const spider = new Spider();
 
 // ---------- ЦИКЛ ----------
@@ -252,7 +256,6 @@ function loop() {
   vg.addColorStop(1, 'rgba(5, 10, 20, 0.6)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-  // Отрисовка
   embers.forEach(e => { e.update(); e.draw(); });
   blood.forEach(b => { b.update(); b.draw(); });
   bats.forEach(b  => { b.update(); b.draw();  });
