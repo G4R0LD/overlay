@@ -38,6 +38,70 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
+// ---------- НОВАЯ КРАСИВАЯ ТЫКВА (SVG) ----------
+// Мы создаём SVG-картинку прямо в коде и конвертируем её в изображение
+const pumpkinSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="pumpkinBody" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff7b00"/>
+      <stop offset="60%" stop-color="#d94800"/>
+      <stop offset="100%" stop-color="#4a0a00"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <!-- Тело тыквы (сегменты) -->
+  <ellipse cx="100" cy="120" rx="70" ry="60" fill="url(#pumpkinBody)" />
+  <ellipse cx="60" cy="120" rx="45" ry="60" fill="url(#pumpkinBody)" />
+  <ellipse cx="140" cy="120" rx="45" ry="60" fill="url(#pumpkinBody)" />
+  <ellipse cx="30" cy="120" rx="25" ry="55" fill="url(#pumpkinBody)" />
+  <ellipse cx="170" cy="120" rx="25" ry="55" fill="url(#pumpkinBody)" />
+  
+  <!-- Хвостик -->
+  <path d="M 90 50 Q 90 25 100 15 Q 110 25 110 50 Z" fill="#2d4a22" />
+  <path d="M 92 50 Q 95 30 100 20 Q 105 30 108 50 Z" fill="#1a2e14" />
+  
+  <!-- Светящееся лицо -->
+  <g filter="url(#glow)" fill="#ffe600">
+    <!-- Левый глаз -->
+    <path d="M 45 100 L 85 80 L 80 125 Z" />
+    <!-- Правый глаз -->
+    <path d="M 155 100 L 115 80 L 120 125 Z" />
+    <!-- Нос -->
+    <path d="M 90 130 L 110 130 L 100 150 Z" />
+    <!-- Рот -->
+    <path d="M 45 155 Q 65 135 80 155 Q 90 140 100 155 Q 110 140 120 155 Q 135 135 155 155 L 145 185 Q 100 160 55 185 Z" />
+  </g>
+</svg>`;
+
+const pumpkinImg = new Image();
+pumpkinImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(pumpkinSvg);
+
+function drawPumpkin() {
+  if (!pumpkinImg.complete) return;
+  
+  const px = 30; // Отступ слева
+  const py = H - 220; // Отступ снизу
+  const size = 180;
+
+  // Пульсирующее свечение вокруг тыквы
+  const time = Date.now() / 600;
+  const pulse = Math.sin(time) * 0.1 + 0.9; // Плавное изменение размера
+  
+  const g = ctx.createRadialGradient(px + size/2, py + size/2, 0, px + size/2, py + size/2, size * 1.5 * pulse);
+  g.addColorStop(0, 'rgba(255, 120, 0, 0.4)');
+  g.addColorStop(1, 'rgba(255, 120, 0, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(px + size/2, py + size/2, size * 1.5 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Сама тыква
+  ctx.drawImage(pumpkinImg, px, py, size, size);
+}
+
 // ---------- МОЛНИЯ ----------
 let lightningAlpha = 0;
 let lightningTimer = Math.random() * 600;
@@ -94,7 +158,6 @@ class Ember {
     this.speedY = 0.2 + Math.random() * 0.8;
     this.speedX = (Math.random() - 0.5) * 0.5;
     this.alpha = 0.1 + Math.random() * 0.7;
-    this.flicker = Math.random() * 0.05;
   }
   update() {
     this.y -= this.speedY;
@@ -225,7 +288,7 @@ class Spider {
     this.x = W * 0.15; 
     this.y = -20;
     this.targetY = 150 + Math.random() * 150;
-    this.state = 0; // 0 - спуск, 1 - пауза, 2 - подъем
+    this.state = 0; 
     this.timer = 0;
   }
   update() {
@@ -248,46 +311,30 @@ class Spider {
   draw() {
     if (!OPT.spider) return;
     if (this.state === 2 && this.y < 0) return;
-    
-    // Нитка
     ctx.strokeStyle = 'rgba(200,200,200,0.3)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(this.x, 0); ctx.lineTo(this.x, this.y); ctx.stroke();
-    
-    // Тело
     ctx.fillStyle = '#111';
     ctx.beginPath(); ctx.ellipse(this.x, this.y, 8, 10, 0, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(this.x, this.y - 10, 5, 0, Math.PI * 2); ctx.fill();
-    
-    // Лапки
     ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
     const legOffsets = [-12, -6, 6, 12];
     legOffsets.forEach(off => {
-      ctx.beginPath();
-      ctx.moveTo(this.x, this.y);
-      ctx.quadraticCurveTo(this.x + off*1.5, this.y - 10, this.x + off*2, this.y - 15);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(this.x, this.y);
-      ctx.quadraticCurveTo(this.x + off*1.5, this.y + 10, this.x + off*2, this.y + 15);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.quadraticCurveTo(this.x + off*1.5, this.y - 10, this.x + off*2, this.y - 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.quadraticCurveTo(this.x + off*1.5, this.y + 10, this.x + off*2, this.y + 15); ctx.stroke();
     });
   }
 }
 
-// ---------- ПАУТИНА (УГЛЫ) ----------
+// ---------- ПАУТИНА ----------
 function drawCobweb(cx, cy, radius, angleStart, angleEnd) {
   ctx.strokeStyle = 'rgba(255,255,255,0.1)';
   ctx.lineWidth = 1.5;
   const rays = 5;
   for (let i = 0; i <= rays; i++) {
     const angle = angleStart + (angleEnd - angleStart) * (i / rays);
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius); ctx.stroke();
   }
-  // Кольца паутины
   for (let r = radius * 0.2; r <= radius; r += radius * 0.25) {
     ctx.beginPath();
     for (let i = 0; i <= rays; i++) {
@@ -304,55 +351,6 @@ function drawCobweb(cx, cy, radius, angleStart, angleEnd) {
     }
     ctx.stroke();
   }
-}
-
-// ---------- ТЫКВА ----------
-function drawPumpkin() {
-  const px = 80, py = H - 80, pr = 60;
-  // Свечение
-  const g = ctx.createRadialGradient(px, py, 0, px, py, pr * 2);
-  g.addColorStop(0, 'rgba(255, 100, 0, 0.2)');
-  g.addColorStop(1, 'rgba(255, 100, 0, 0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, pr * 2, 0, Math.PI * 2); ctx.fill();
-
-  // Силуэт
-  ctx.fillStyle = 'rgba(20, 10, 0, 0.85)';
-  ctx.shadowColor = 'rgba(255, 80, 0, 0.5)';
-  ctx.shadowBlur = 20;
-
-  // Форма тыквы
-  ctx.beginPath();
-  ctx.ellipse(px, py, pr, pr * 0.8, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(px - 30, py, pr * 0.6, pr * 0.8, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(px + 30, py, pr * 0.6, pr * 0.8, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Хвостик
-  ctx.fillStyle = 'rgba(20, 10, 0, 0.85)';
-  ctx.fillRect(px - 8, py - pr * 0.9, 16, 20);
-
-  // Глаза и рот (светящиеся)
-  ctx.shadowBlur = 15;
-  ctx.fillStyle = '#ffcc00';
-  
-  // Глаза (треугольники)
-  ctx.beginPath(); ctx.moveTo(px - 30, py - 10); ctx.lineTo(px - 10, py - 30); ctx.lineTo(px - 10, py - 5); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(px + 30, py - 10); ctx.lineTo(px + 10, py - 30); ctx.lineTo(px + 10, py - 5); ctx.fill();
-  
-  // Зловещая улыбка
-  ctx.beginPath();
-  ctx.moveTo(px - 35, py + 15);
-  ctx.quadraticCurveTo(px - 20, py + 40, px, py + 20);
-  ctx.quadraticCurveTo(px + 20, py + 40, px + 35, py + 15);
-  ctx.quadraticCurveTo(px + 15, py + 25, px, py + 10);
-  ctx.quadraticCurveTo(px - 15, py + 25, px - 35, py + 15);
-  ctx.fill();
-  
-  ctx.shadowBlur = 0;
 }
 
 // ---------- ИНИЦИАЛИЗАЦИЯ ----------
@@ -372,20 +370,19 @@ function loop() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // Сильный вигнет (тёмные края)
+  // Вигнет
   const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.8);
   vg.addColorStop(0, 'rgba(10,0,25,0)');
   vg.addColorStop(1, 'rgba(10,0,25,0.55)');
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
 
-  // Отрисовка слоев
   fogs.forEach(f => { f.update(); f.draw(); });
   if (OPT.moon) drawMoon();
   embers.forEach(e => { e.update(); e.draw(); });
   blood.forEach(b => { b.update(); b.draw(); });
   
-  drawPumpkin();
+  drawPumpkin(); // Рисуем нашу новую красивую тыкву
   
   eyes.forEach(e  => { e.update(); e.draw();  });
   bats.forEach(b  => { b.update(); b.draw();  });
@@ -393,9 +390,8 @@ function loop() {
   spider.update();
   spider.draw();
 
-  // Паутина по углам
-  drawCobweb(0, 0, 300, 0, Math.PI / 2); // Левый верх
-  drawCobweb(W, 0, 300, Math.PI / 2, Math.PI); // Правый верх
+  drawCobweb(0, 0, 300, 0, Math.PI / 2); 
+  drawCobweb(W, 0, 300, Math.PI / 2, Math.PI); 
 
   drawLightning();
 
