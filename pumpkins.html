@@ -35,32 +35,32 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000, 0); 
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-// СНИЗИЛИ ЭКСПОЗИЦИЮ, ЧТОБЫ УБРАТЬ ПЕРЕСВЕТ
 renderer.toneMappingExposure = 0.75; 
 document.body.appendChild(renderer.domElement);
 
 camera.position.z = 6.0; 
 
-// --- ОСВЕЩЕНИЕ (БЕЗ СВЕТА ПО ЦЕНТРУ) ---
-
-// 1. Минимальный общий фон
+// --- СТАТИЧНОЕ ОСВЕЩЕНИЕ ---
 const ambientLight = new THREE.AmbientLight(0x112233, 0.4); 
 scene.add(ambientLight);
 
-// 2. Лунный свет СЗАДИ (создает синий контур)
+// Лунный свет СЗАДИ (создает синий контур)
 const moonLight = new THREE.DirectionalLight(0x88bbff, 2.0);
 moonLight.position.set(-2, 5, -5); 
 scene.add(moonLight);
 
-// 3. СВЕТ ОТ СВЕЧИ СЛЕВА-СВЕРХУ (приглушенный, проявляет оранжевый)
-const candleLight = new THREE.DirectionalLight(0xffaa55, 1.5);
-candleLight.position.set(-5, 3, 4); 
-scene.add(candleLight);
-
-// 4. Легкий подсвет СПРАВА (чтобы второй бок не был абсолютно черным)
+// Легкий подсвет СПРАВА (чтобы второй бок не был абсолютно черным)
 const sideLight = new THREE.DirectionalLight(0x88ccff, 0.5);
 sideLight.position.set(5, 1, 2); 
 scene.add(sideLight);
+
+// --- ДИНАМИЧЕСКИЙ СВЕТ ОТ СВЕЧИ (СЛЕВА-СПЕРЕДИ) ---
+// Используем PointLight, чтобы свет рассеивался как от реального огня.
+// Яркость (второй параметр) для точечного света указывается в люменах, поэтому она больше.
+const candleLight = new THREE.PointLight(0xffaa55, 25.0, 20.0);
+const baseLightPos = new THREE.Vector3(-4, 2, 4); // Базовая позиция (запомнили)
+candleLight.position.copy(baseLightPos);
+scene.add(candleLight);
 
 // --- ГРУППА ДЛЯ ТЫКВ ---
 const pumpkinGroup = new THREE.Group();
@@ -94,9 +94,6 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
 
   pumpkinGroup.add(model); 
   
-  // ВНУТРЕННИЙ СВЕТ ПОЛНОСТЬЮ УДАЛЕН!
-  // Теперь мы полагаемся на текстуры emissive самой модели.
-
   pumpkinGroup.position.set(0, 0, 0); 
   pumpkinGroup.rotation.set(0, 0, 0); 
 
@@ -109,9 +106,25 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   loadingDiv.style.color = "red";
 });
 
-// --- СТАТИЧНЫЙ РЕНДЕР ---
+// --- АНИМАЦИЯ СВЕТА ---
+const clock = new THREE.Clock();
+
 function render() {
   requestAnimationFrame(render);
+  
+  const time = clock.getElapsedTime();
+
+  // 1. Меняем яркость (имитация порывов пламени)
+  // Комбинируем синусоиды с разной частотой и добавляем немного рандома
+  const flickerIntensity = Math.sin(time * 12) * 0.3 + Math.cos(time * 25) * 0.2 + Math.random() * 0.15;
+  candleLight.intensity = 25.0 + (flickerIntensity * 15.0); // Яркость гуляет примерно от 15 до 35
+
+  // 2. Слегка двигаем сам источник света (эффект танцующего огонька)
+  // Сдвиг очень маленький (0.1), чтобы тыквы не "прыгали", но тени шевелились
+  candleLight.position.x = baseLightPos.x + Math.sin(time * 8) * 0.1;
+  candleLight.position.y = baseLightPos.y + Math.cos(time * 10) * 0.1;
+  candleLight.position.z = baseLightPos.z + Math.sin(time * 6) * 0.05;
+
   renderer.render(scene, camera);
 }
 
