@@ -26,15 +26,14 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
-// Камера и рендерер с настройками для ИДЕАЛЬНОЙ прозрачности
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ 
   alpha: true, 
   antialias: true,
-  premultipliedAlpha: false // Важно для прозрачности в OBS
+  premultipliedAlpha: false 
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x000000, 0); // Делаем фон абсолютно прозрачным
+renderer.setClearColor(0x000000, 0); 
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
@@ -51,49 +50,15 @@ const backLight = new THREE.DirectionalLight(0x4488ff, 2.5);
 backLight.position.set(-2, 1, -3);
 scene.add(backLight);
 
-// Свет для глаз (он будет освещать края глазниц изнутри)
-const leftEyeLight = new THREE.PointLight(0xff2200, 2.0, 1.2); 
+// Точечный свет, чтобы огонь освещал стенки глазниц изнутри
+const leftEyeLight = new THREE.PointLight(0xff2200, 3.0, 1.5); 
 leftEyeLight.position.set(-0.6, 0.2, 1.3); 
 
-const rightEyeLight = new THREE.PointLight(0xff2200, 2.0, 1.2);
+const rightEyeLight = new THREE.PointLight(0xff2200, 3.0, 1.5);
 rightEyeLight.position.set(0.6, 0.2, 1.3); 
 
 scene.add(leftEyeLight);
 scene.add(rightEyeLight);
-
-// --- ДОБАВЛЯЕМ ВИЗУАЛЬНОЕ СВЕЧЕНИЕ В ГЛАЗА (Вместо Bloom) ---
-// Создаем мягкую текстуру свечения
-const glowCanvas = document.createElement('canvas');
-glowCanvas.width = 64; glowCanvas.height = 64;
-const gCtx = glowCanvas.getContext('2d');
-const gradient = gCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
-gradient.addColorStop(0, 'rgba(255, 0, 0, 1)');
-gradient.addColorStop(0.2, 'rgba(255, 0, 0, 0.8)');
-gradient.addColorStop(0.5, 'rgba(255, 0, 0, 0.3)');
-gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
-gCtx.fillStyle = gradient;
-gCtx.fillRect(0, 0, 64, 64);
-const glowTexture = new THREE.CanvasTexture(glowCanvas);
-
-// Делаем два светящихся "шарика" в глазах
-const eyeGlowMaterial = new THREE.SpriteMaterial({ 
-  map: glowTexture, 
-  color: 0xff2200, 
-  blending: THREE.AdditiveBlending, 
-  depthWrite: false,
-  transparent: true
-});
-
-const leftEyeGlow = new THREE.Sprite(eyeGlowMaterial);
-leftEyeGlow.position.set(-0.6, 0.2, 1.4); // Чуть впереди света
-leftEyeGlow.scale.set(0.8, 0.8, 1);
-
-const rightEyeGlow = new THREE.Sprite(eyeGlowMaterial);
-rightEyeGlow.position.set(0.6, 0.2, 1.4);
-rightEyeGlow.scale.set(0.8, 0.8, 1);
-
-scene.add(leftEyeGlow);
-scene.add(rightEyeGlow);
 
 camera.position.z = 6.5; 
 
@@ -133,8 +98,79 @@ loader.load('scene.gltf', function (gltf) {
   loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
 });
 
-// --- ЧАСТИЦЫ (Круглые искры) ---
-const particleCount = 200;
+// --- СОЗДАНИЕ ТЕКСТУРЫ ОГНЯ (ПРОЦЕДУРНОЙ) ---
+function createFireTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128; canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  
+  // Многослойный радиальный градиент для реалистичного пламени
+  const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');    // Белое ядро
+  gradient.addColorStop(0.2, 'rgba(255, 255, 150, 1)');  // Желтый
+  gradient.addColorStop(0.4, 'rgba(255, 100, 0, 0.8)');  // Оранжевый
+  gradient.addColorStop(0.7, 'rgba(200, 0, 0, 0.4)');    // Красный
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');          // Прозрачный
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 128, 128);
+  
+  return new THREE.CanvasTexture(canvas);
+}
+
+const fireTexture = createFireTexture();
+
+// Создаем светящиеся спрайты для глаз
+const fireMaterial = new THREE.SpriteMaterial({
+  map: fireTexture,
+  blending: THREE.AdditiveBlending, // Светится поверх модели
+  depthWrite: false,
+  transparent: true
+});
+
+const leftFire = new THREE.Sprite(fireMaterial.clone());
+leftFire.position.set(-0.6, 0.2, 1.4);
+leftFire.scale.set(0.8, 1.0, 1); 
+scene.add(leftFire);
+
+const rightFire = new THREE.Sprite(fireMaterial.clone());
+rightFire.position.set(0.6, 0.2, 1.4);
+rightFire.scale.set(0.8, 1.0, 1);
+scene.add(rightFire);
+
+// --- ЧАСТИЦЫ ДЛЯ ГЛАЗ (Искры) ---
+const eyeSparksGeo = new THREE.BufferGeometry();
+const eyeSparkCount = 30;
+const eyeSparkPos = new Float32Array(eyeSparkCount * 3);
+const eyeSparkData = [];
+
+// Инициализация искр для левого и правого глаза
+for(let i = 0; i < eyeSparkCount; i++) {
+  const isLeft = i % 2 === 0;
+  eyeSparkData.push({
+    isLeft: isLeft,
+    offsetX: (Math.random() - 0.5) * 0.2,
+    y: Math.random() * 0.5, 
+    z: Math.random() * 0.2,
+    speed: 0.01 + Math.random() * 0.02
+  });
+  eyeSparkPos[i*3] = isLeft ? -0.6 : 0.6;
+  eyeSparkPos[i*3+1] = 0.2;
+  eyeSparkPos[i*3+2] = 1.4;
+}
+eyeSparksGeo.setAttribute('position', new THREE.BufferAttribute(eyeSparkPos, 3));
+
+const sparkMat = new THREE.PointsMaterial({
+  color: 0xffaa00,
+  size: 0.05,
+  blending: THREE.AdditiveBlending,
+  transparent: true,
+  depthWrite: false
+});
+const eyeSparkSystem = new THREE.Points(eyeSparksGeo, sparkMat);
+scene.add(eyeSparkSystem);
+
+// --- ФОНОВЫЕ ЧАСТИЦЫ ---
+const particleCount = 150;
 const particlesGeo = new THREE.BufferGeometry();
 const positions = new Float32Array(particleCount * 3);
 const velocities = [];
@@ -151,25 +187,18 @@ for (let i = 0; i < particleCount; i++) {
 }
 particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-// Текстура для искр (мягкий круг)
 const sparkCanvas = document.createElement('canvas');
 sparkCanvas.width = 32; sparkCanvas.height = 32;
 const sCtx = sparkCanvas.getContext('2d');
 const sGrad = sCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
 sGrad.addColorStop(0, 'rgba(255, 200, 100, 1)');
-sGrad.addColorStop(0.5, 'rgba(255, 100, 0, 0.8)');
 sGrad.addColorStop(1, 'rgba(255, 0, 0, 0)');
-sCtx.fillStyle = sGrad;
-sCtx.fillRect(0, 0, 32, 32);
+sCtx.fillStyle = sGrad; sCtx.fillRect(0, 0, 32, 32);
 const sparkTexture = new THREE.CanvasTexture(sparkCanvas);
 
 const particlesMat = new THREE.PointsMaterial({
-  size: 0.15,
-  map: sparkTexture,
-  transparent: true,
-  opacity: 0.9,
-  blending: THREE.AdditiveBlending,
-  depthWrite: false
+  size: 0.12, map: sparkTexture, transparent: true, opacity: 0.7,
+  blending: THREE.AdditiveBlending, depthWrite: false
 });
 
 const particleSystem = new THREE.Points(particlesGeo, particlesMat);
@@ -188,22 +217,45 @@ function animate() {
     skullModel.rotation.x = Math.cos(time * 0.8) * 0.05;
   }
 
-  // Пульсация света и свечения в глазах
-  const pulse = 1.5 + Math.sin(time * 4) * 0.5; 
-  leftEyeLight.intensity = pulse;
-  rightEyeLight.intensity = pulse;
+  // Огонь в глазах
+  // Хаотично меняем размер (имитация колыхания пламени)
+  const flickerL = 0.8 + Math.sin(time * 15) * 0.1 + Math.random() * 0.1;
+  const flickerR = 0.8 + Math.cos(time * 12) * 0.1 + Math.random() * 0.1;
   
-  // Пульсирующий размер светящихся шариков
-  const glowScale = 0.8 + Math.sin(time * 4) * 0.1;
-  leftEyeGlow.scale.set(glowScale, glowScale, 1);
-  rightEyeGlow.scale.set(glowScale, glowScale, 1);
+  leftFire.scale.set(flickerL * 0.8, flickerL * 1.2, 1);
+  rightFire.scale.set(flickerR * 0.8, flickerR * 1.2, 1);
+  
+  // Меняем яркость (прозрачность)
+  leftFire.material.opacity = 0.8 + Math.random() * 0.2;
+  rightFire.material.opacity = 0.8 + Math.random() * 0.2;
 
+  // Пульсация точечного света
+  leftEyeLight.intensity = 3.0 + Math.random() * 1.5;
+  rightEyeLight.intensity = 3.0 + Math.random() * 1.5;
+
+  // Анимация искр из глазниц
+  const ePos = eyeSparkSystem.geometry.attributes.position.array;
+  for(let i = 0; i < eyeSparkCount; i++) {
+    let data = eyeSparkData[i];
+    ePos[i*3+1] += data.speed; // Летят вверх
+    
+    // Небольшое смещение в стороны
+    ePos[i*3] += Math.sin(time * 10 + i) * 0.005; 
+
+    // Если искра улетела высоко - сбрасываем вниз
+    if(ePos[i*3+1] > 0.8) {
+      ePos[i*3+1] = 0.2;
+      ePos[i*3] = (data.isLeft ? -0.6 : 0.6) + (Math.random() - 0.5) * 0.1;
+    }
+  }
+  eyeSparkSystem.geometry.attributes.position.needsUpdate = true;
+
+  // Движение фоновых искр
   const posArray = particleSystem.geometry.attributes.position.array;
   for (let i = 0; i < particleCount; i++) {
     posArray[i * 3] += velocities[i].x;
     posArray[i * 3 + 1] += velocities[i].y;
     posArray[i * 3 + 2] += velocities[i].z;
-
     if (posArray[i * 3 + 1] > 4) {
       posArray[i * 3 + 1] = -4;
       posArray[i * 3] = (Math.random() - 0.5) * 8;
@@ -211,7 +263,6 @@ function animate() {
   }
   particleSystem.geometry.attributes.position.needsUpdate = true;
 
-  // Обычный рендер, без композера. Прозрачность будет идеальной.
   renderer.render(scene, camera);
 }
 
