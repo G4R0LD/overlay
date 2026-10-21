@@ -6,7 +6,7 @@
 <style>
   html, body { margin:0; padding:0; background:transparent; overflow:hidden; width:100%; height:100%; }
   canvas { display:block; pointer-events:none; }
-  #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; z-index: 100; }
+  #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
 </head>
 <body>
@@ -35,16 +35,16 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000, 0); 
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2; 
+renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
-// --- ОЧЕНЬ ЯРКИЙ СВЕТ ДЛЯ ТЕСТА ---
-const ambientLight = new THREE.AmbientLight(0xffffff, 5.0); // Сделали очень ярким
+// --- ОСВЕЩЕНИЕ ---
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
-dirLight.position.set(2, 3, 4);
-scene.add(dirLight);
+const warmLight = new THREE.DirectionalLight(0xffaa66, 2.0);
+warmLight.position.set(2, 3, 4);
+scene.add(warmLight);
 
 // --- ГРУППА ДЛЯ ТЫКВ ---
 const pumpkinGroup = new THREE.Group();
@@ -54,64 +54,64 @@ scene.add(pumpkinGroup);
 const loader = new GLTFLoader();
 const loadingDiv = document.getElementById('loading');
 
-// Обрати внимание на путь
 loader.load('pumpkins_model/scene.gltf', function (gltf) {
   loadingDiv.style.display = 'none';
   const model = gltf.scene;
   
+  // 1. Сначала вычисляем размеры
   const box = new THREE.Box3().setFromObject(model);
-  const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
-  
-  // Центрируем модель
-  model.position.sub(center); 
-  
-  // Масштабируем. Если размер 0, ставим 1.
   const maxDim = Math.max(size.x, size.y, size.z) || 1; 
-  const scale = 4.0 / maxDim; 
+  
+  // 2. Масштабируем модель (делаем её нужного размера, например 3.0 условные единицы)
+  const targetSize = 3.0; 
+  const scale = targetSize / maxDim; 
   model.scale.set(scale, scale, scale);
   
-  // ПРИНУДИТЕЛЬНО ДЕЛАЕМ МАТЕРИАЛЫ СВЕТЯЩИМИСЯ, ЧТОБЫ УВИДЕТЬ ИХ
+  // 3. После масштабирования заново вычисляем центр, чтобы идеально его отцентрировать
+  const scaledBox = new THREE.Box3().setFromObject(model);
+  const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+  model.position.sub(scaledCenter); 
+  
+  // 4. Восстанавливаем нормальные материалы (без кислотного свечения)
   model.traverse((node) => {
-    if (node.isMesh) {
-      if (node.material) {
-        // Если текстура сломалась, мы хотя бы увидим оранжевый цвет
-        node.material.emissive = new THREE.Color(0xff4400);
-        node.material.emissiveIntensity = 1.0;
-        node.material.color = new THREE.Color(0xff8800); 
-      }
+    if (node.isMesh && node.material) {
+      node.material.roughness = 0.8; 
+      node.material.metalness = 0.1;
     }
   });
 
-  // Ставим ровно в центр, без смещений
-  pumpkinGroup.position.set(0, 0, 0);
-  pumpkinGroup.rotation.set(0, 0, 0);
-
   pumpkinGroup.add(model); 
   
-  // Добавляем свет внутрь группы
-  const pumpkinLight = new THREE.PointLight(0xffaa00, 10.0, 20.0);
-  pumpkinLight.position.set(0, 2, 2); 
+  // Добавляем свет внутрь группы (как будто свечи горят)
+  const pumpkinLight = new THREE.PointLight(0xff6600, 5.0, 10.0);
+  pumpkinLight.position.set(0, 0, 1); 
   pumpkinGroup.add(pumpkinLight);
 
-  // Показываем текст об успехе прямо на экране
-  loadingDiv.style.display = 'block';
-  loadingDiv.innerHTML = "МОДЕЛЬ ЗАГРУЖЕНА!<br>Смотри в центр экрана.";
-  setTimeout(() => { loadingDiv.style.display = 'none'; }, 3000);
+  // --- ПОЗИЦИОНИРОВАНИЕ В ПРАВЫЙ НИЖНИЙ УГОЛ ---
+  // X: 2.2 (вправо), Y: -1.5 (вниз)
+  pumpkinGroup.position.set(2.2, -1.5, 0);
+  pumpkinGroup.rotation.y = -0.3; // Легкий поворот к центру
 
 }, function (xhr) {
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
   loadingDiv.innerHTML = `Загрузка... ${percent}%`;
 }, function (error) {
   console.error("ОШИБКА ЗАГРУЗКИ:", error);
-  loadingDiv.innerHTML = "ОШИБКА: Файл не найден или битый.";
+  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
   loadingDiv.style.color = "red";
 });
 
-// --- АНИМАЦИЯ (БЕЗ ДВИЖЕНИЯ) ---
+// --- АНИМАЦИЯ ---
+const clock = new THREE.Clock();
+
 function animate() {
   requestAnimationFrame(animate);
-  // Тут пусто, никакого движения
+  const time = clock.getElapsedTime();
+
+  // Очень плавное покачивание для живости
+  pumpkinGroup.position.y = -1.5 + Math.sin(time * 1.5) * 0.05; 
+
   renderer.render(scene, camera);
 }
 
