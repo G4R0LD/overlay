@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>🎃 Pumpkin Trio Overlay</title>
+<style>
+  html, body { margin:0; padding:0; background:transparent; overflow:hidden; width:100%; height:100%; }
+  canvas { display:block; pointer-events:none; }
+  #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
+</style>
+</head>
+<body>
+<div id="loading">Загрузка 3D-тыкв...</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+const renderer = new THREE.WebGLRenderer({ 
+  alpha: true, 
+  antialias: true,
+  premultipliedAlpha: false 
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0); 
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0; 
+document.body.appendChild(renderer.domElement);
+
+// --- ОСВЕЩЕНИЕ СЦЕНЫ ---
+// Мягкий общий свет, чтобы тыквы не были слишком тёмными
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
+scene.add(ambientLight);
+
+// Основной тёплый свет, чтобы подчеркнуть оранжевый цвет
+const warmLight = new THREE.DirectionalLight(0xffaa66, 2.0);
+warmLight.position.set(2, 3, 4);
+scene.add(warmLight);
+
+// --- ГРУППА ДЛЯ ТЫКВ (чтобы всё двигалось вместе) ---
+const pumpkinGroup = new THREE.Group();
+scene.add(pumpkinGroup);
+
+// --- ЗАГРУЗКА МОДЕЛИ ---
+const loader = new GLTFLoader();
+const loadingDiv = document.getElementById('loading');
+loadingDiv.style.display = 'block';
+
+// ВАЖНО: Проверь имя файла. Если у тебя не scene.gltf, поменяй здесь.
+loader.load('pumpkins_model/scene.gltf', function (gltf) {
+  loadingDiv.style.display = 'none';
+  const model = gltf.scene;
+  
+  // Центрируем модель
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.sub(center); 
+  
+  // Масштабируем под наш угол
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = 4.0 / maxDim; // Размер тыкв. Можешь увеличить или уменьшить.
+  model.scale.set(scale, scale, scale);
+  
+  // Настраиваем материалы
+  model.traverse((node) => {
+    if (node.isMesh && node.material) {
+      // Делаем материал чуть более матовым, чтобы убрать лишний блеск
+      node.material.roughness = 0.8; 
+      node.material.metalness = 0.1;
+    }
+  });
+
+  pumpkinGroup.add(model); 
+  
+  // --- ДОБАВЛЯЕМ СВЕТ ВНУТРЬ ТЫКВ ---
+  // Создаём тёплый точечный свет, который будет имитировать огонь изнутри
+  const pumpkinLight = new THREE.PointLight(0xff6600, 3.0, 5.0);
+  pumpkinLight.position.set(0, 0.5, 0.5); // Позиция внутри группы тыкв
+  pumpkinGroup.add(pumpkinLight);
+  
+  // Добавляем ещё пару источников для объёма (опционально)
+  const pumpkinLight2 = new THREE.PointLight(0xff4400, 2.0, 4.0);
+  pumpkinLight2.position.set(-1, 0.2, 0.8);
+  pumpkinGroup.add(pumpkinLight2);
+
+}, function (xhr) {
+  const percent = Math.round((xhr.loaded / xhr.total) * 100);
+  loadingDiv.innerHTML = `Загрузка 3D-тыкв... ${percent}%`;
+}, function (error) {
+  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf. Проверь имя файла и папку textures.";
+});
+
+// --- ПОЗИЦИОНИРОВАНИЕ ---
+// Ставим группу в правый нижний угол. 
+// Координаты подобраны примерно, ты сможешь двигать их в OBS.
+pumpkinGroup.position.set(2.5, -2.0, 0); // X, Y, Z. X - вправо, Y - вниз, Z - глубина.
+// Наклоняем тыквы, чтобы они смотрели немного в центр
+pumpkinGroup.rotation.y = -0.3; 
+
+// --- АНИМАЦИЯ ---
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const time = clock.getElapsedTime();
+
+  // Лёгкое покачивание и очень медленное вращение для живости
+  pumpkinGroup.position.y = -2.0 + Math.sin(time * 1.5) * 0.05; 
+  pumpkinGroup.rotation.y = -0.3 + Math.sin(time * 0.5) * 0.1;
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>
