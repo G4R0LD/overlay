@@ -35,26 +35,30 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000, 0); 
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9; // Немного приглушили общую экспозицию
+renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
 camera.position.z = 6.0; 
 
-// --- НОВОЕ ОСВЕЩЕНИЕ (ГЛУБОКИЕ ТЕНИ) ---
+// --- НОВОЕ ОСВЕЩЕНИЕ (СВЕЧА + ЛУНА) ---
 
-// 1. Очень слабый общий свет (только чтобы тени не были АБСОЛЮТНО черными)
-const ambientLight = new THREE.AmbientLight(0x112233, 0.6); 
+// 1. Очень слабый общий свет (чтобы тени были черными, но не выжженными)
+const ambientLight = new THREE.AmbientLight(0x112233, 0.4); 
 scene.add(ambientLight);
 
-// 2. Мощный холодный лунный свет СЗАДИ (Backlight)
-// Светит из-за тыкв, создавая контур
-const moonLight = new THREE.DirectionalLight(0x88bbff, 4.0);
-moonLight.position.set(-2, 5, -5); // Сзади и слева сверху
+// 2. Лунный свет СЗАДИ (Холодный, создает контур)
+const moonLight = new THREE.DirectionalLight(0x88bbff, 3.5);
+moonLight.position.set(-2, 5, -5); 
 scene.add(moonLight);
 
-// 3. Слабый зеленовато-белый свет СПРАВА
-const sideLight = new THREE.DirectionalLight(0xccffcc, 1.2);
-sideLight.position.set(5, 2, 2); // Справа
+// 3. СВЕТ ОТ СВЕЧИ СЛЕВА И СВЕРХУ (Тёплый, проявляет оранжевый)
+const candleLight = new THREE.DirectionalLight(0xffaa55, 3.0);
+candleLight.position.set(-5, 3, 4); 
+scene.add(candleLight);
+
+// 4. Легкий холодный подсвет СПРАВА (чтобы правый бок не был угольно-черным)
+const sideLight = new THREE.DirectionalLight(0x88ccff, 0.8);
+sideLight.position.set(5, 1, 2); 
 scene.add(sideLight);
 
 // --- ГРУППА ДЛЯ ТЫКВ ---
@@ -69,7 +73,6 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   loadingDiv.style.display = 'none';
   const model = gltf.scene;
   
-  // Центрируем и масштабируем
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
@@ -81,24 +84,22 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   const scale = targetSize / maxDim; 
   model.scale.set(scale, scale, scale);
   
-  // Настраиваем материалы (возвращаем оригинальные цвета)
   model.traverse((node) => {
     if (node.isMesh && node.material) {
-      node.material.roughness = 0.9; // Сделал еще более матовым, чтобы убрать пластиковый блеск
+      node.material.roughness = 0.9; 
       node.material.metalness = 0.0;
     }
   });
 
   pumpkinGroup.add(model); 
   
-  // 4. Крошечный источник света ВНУТРИ, чтобы подсветить текстуру светящихся лиц изнутри
-  // Мы убрали мощный фронтальный свет, этот работает только локально
-  const innerGlow = new THREE.PointLight(0xff4400, 2.5, 2.0); // Меньше радиус, мягче свет
+  // Внутренний свет (поменяли на золотисто-желтый, убрали красноту)
+  const innerGlow = new THREE.PointLight(0xffaa00, 2.0, 2.5); 
   innerGlow.position.set(0, 0, 1); 
   pumpkinGroup.add(innerGlow);
 
   pumpkinGroup.position.set(0, 0, 0); 
-  pumpkinGroup.rotation.set(0, -0.6, 0); 
+  pumpkinGroup.rotation.set(0, 0, 0); 
 
 }, function (xhr) {
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
