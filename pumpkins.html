@@ -38,7 +38,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
-// --- ИСПРАВЛЕНИЕ: ОТОДВИГАЕМ КАМЕРУ ---
+// Отодвигаем камеру
 camera.position.z = 6.0; 
 
 // --- ОСВЕЩЕНИЕ ---
@@ -61,17 +61,16 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   loadingDiv.style.display = 'none';
   const model = gltf.scene;
   
-  // Центрируем и масштабируем
+  // Центрируем модель
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   
-  // Сдвигаем так, чтобы центр модели был в нуле
-  model.position.sub(center); 
+  model.position.sub(center); // Сдвигаем в 0,0,0
   
-  // Настраиваем размер
+  // Настраиваем размер. 4.5 - это крупный размер, который влезет в 800x800.
   const maxDim = Math.max(size.x, size.y, size.z) || 1; 
-  const targetSize = 2.5; // <--- РАЗМЕР ТЫКВ (крути эту цифру)
+  const targetSize = 4.5; // Если надо больше - ставь 5.0, если меньше - 4.0
   const scale = targetSize / maxDim; 
   model.scale.set(scale, scale, scale);
   
@@ -85,15 +84,14 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
 
   pumpkinGroup.add(model); 
   
-  // Свет внутри
+  // Свет внутри (чтобы лица светились изнутри)
   const pumpkinLight = new THREE.PointLight(0xff6600, 5.0, 10.0);
   pumpkinLight.position.set(0, 0, 1); 
   pumpkinGroup.add(pumpkinLight);
 
-  // --- ПОЗИЦИОНИРОВАНИЕ В ПРАВЫЙ НИЖНИЙ УГОЛ ---
-  // Под разрешение 800x800, чтобы тыквы были в углу.
-  pumpkinGroup.position.set(1.5, -1.5, 0); 
-  pumpkinGroup.rotation.y = -0.4; 
+  // Ставим ровно в центр экрана и убираем любой поворот
+  pumpkinGroup.position.set(0, 0, 0); 
+  pumpkinGroup.rotation.set(0, 0, 0); 
 
 }, function (xhr) {
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
@@ -104,18 +102,10 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   loadingDiv.style.color = "red";
 });
 
-// --- АНИМАЦИЯ ---
-const clock = new THREE.Clock();
-
-function animate() {
-  requestAnimationFrame(animate);
-  const time = clock.getElapsedTime();
-
-  // Легкое покачивание
-  pumpkinGroup.position.y = -1.5 + Math.sin(time * 1.5) * 0.05; 
-  // Медленное вращение (если захочешь убрать, закомментируй строчку ниже)
-  pumpkinGroup.rotation.y = -0.4 + Math.sin(time * 0.5) * 0.1;
-
+// --- СТАТИЧНЫЙ РЕНДЕР ---
+// Теперь мы просто отрисовываем кадр, никаких движений
+function render() {
+  requestAnimationFrame(render);
   renderer.render(scene, camera);
 }
 
@@ -125,7 +115,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-animate();
+render();
 </script>
 </body>
 </html>
