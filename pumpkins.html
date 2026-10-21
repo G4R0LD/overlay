@@ -38,6 +38,9 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
+// --- ИСПРАВЛЕНИЕ: ОТОДВИГАЕМ КАМЕРУ ---
+camera.position.z = 6.0; 
+
 // --- ОСВЕЩЕНИЕ ---
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
 scene.add(ambientLight);
@@ -58,22 +61,21 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   loadingDiv.style.display = 'none';
   const model = gltf.scene;
   
-  // 1. Сначала вычисляем размеры
+  // Центрируем и масштабируем
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z) || 1; 
+  const center = box.getCenter(new THREE.Vector3());
   
-  // 2. Масштабируем модель (делаем её нужного размера, например 3.0 условные единицы)
-  const targetSize = 3.0; 
+  // Сдвигаем так, чтобы центр модели был в нуле
+  model.position.sub(center); 
+  
+  // Настраиваем размер
+  const maxDim = Math.max(size.x, size.y, size.z) || 1; 
+  const targetSize = 2.5; // <--- РАЗМЕР ТЫКВ (крути эту цифру)
   const scale = targetSize / maxDim; 
   model.scale.set(scale, scale, scale);
   
-  // 3. После масштабирования заново вычисляем центр, чтобы идеально его отцентрировать
-  const scaledBox = new THREE.Box3().setFromObject(model);
-  const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
-  model.position.sub(scaledCenter); 
-  
-  // 4. Восстанавливаем нормальные материалы (без кислотного свечения)
+  // Материалы
   model.traverse((node) => {
     if (node.isMesh && node.material) {
       node.material.roughness = 0.8; 
@@ -83,21 +85,21 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
 
   pumpkinGroup.add(model); 
   
-  // Добавляем свет внутрь группы (как будто свечи горят)
+  // Свет внутри
   const pumpkinLight = new THREE.PointLight(0xff6600, 5.0, 10.0);
   pumpkinLight.position.set(0, 0, 1); 
   pumpkinGroup.add(pumpkinLight);
 
   // --- ПОЗИЦИОНИРОВАНИЕ В ПРАВЫЙ НИЖНИЙ УГОЛ ---
-  // X: 2.2 (вправо), Y: -1.5 (вниз)
-  pumpkinGroup.position.set(2.2, -1.5, 0);
-  pumpkinGroup.rotation.y = -0.3; // Легкий поворот к центру
+  // Под разрешение 800x800, чтобы тыквы были в углу.
+  pumpkinGroup.position.set(1.5, -1.5, 0); 
+  pumpkinGroup.rotation.y = -0.4; 
 
 }, function (xhr) {
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
   loadingDiv.innerHTML = `Загрузка... ${percent}%`;
 }, function (error) {
-  console.error("ОШИБКА ЗАГРУЗКИ:", error);
+  console.error("ОШИБКА:", error);
   loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
   loadingDiv.style.color = "red";
 });
@@ -109,8 +111,10 @@ function animate() {
   requestAnimationFrame(animate);
   const time = clock.getElapsedTime();
 
-  // Очень плавное покачивание для живости
+  // Легкое покачивание
   pumpkinGroup.position.y = -1.5 + Math.sin(time * 1.5) * 0.05; 
+  // Медленное вращение (если захочешь убрать, закомментируй строчку ниже)
+  pumpkinGroup.rotation.y = -0.4 + Math.sin(time * 0.5) * 0.1;
 
   renderer.render(scene, camera);
 }
