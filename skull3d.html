@@ -38,121 +38,73 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
-// --- ОСВЕЩЕНИЕ ---
-const ambientLight = new THREE.AmbientLight(0x667799, 2.5); 
-scene.add(ambientLight);
-
+// --- ОСВЕЩЕНИЕ СЦЕНЫ (Фон) ---
+scene.add(new THREE.AmbientLight(0x667799, 2.5)); // Общий
 const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
 dirLight.position.set(2, 3, 4);
 scene.add(dirLight);
-
 const backLight = new THREE.DirectionalLight(0x4488ff, 2.5);
 backLight.position.set(-2, 1, -3);
 scene.add(backLight);
 
-// Точечный свет, чтобы огонь освещал стенки глазниц изнутри
+camera.position.z = 6.5; 
+
+// --- СОЗДАЕМ ГРУППУ ДЛЯ ЧЕРЕПА (чтобы всё двигалось вместе) ---
+const skullGroup = new THREE.Group();
+scene.add(skullGroup);
+
+// --- СВЕТ ИЗ ГЛАЗ ---
 const leftEyeLight = new THREE.PointLight(0xff2200, 3.0, 1.5); 
 leftEyeLight.position.set(-0.6, 0.2, 1.3); 
+skullGroup.add(leftEyeLight); // Добавляем в группу!
 
 const rightEyeLight = new THREE.PointLight(0xff2200, 3.0, 1.5);
 rightEyeLight.position.set(0.6, 0.2, 1.3); 
+skullGroup.add(rightEyeLight); // Добавляем в группу!
 
-scene.add(leftEyeLight);
-scene.add(rightEyeLight);
-
-camera.position.z = 6.5; 
-
-// --- ЗАГРУЗКА МОДЕЛИ ---
-const loader = new GLTFLoader();
-let skullModel = null;
-const loadingDiv = document.getElementById('loading');
-loadingDiv.style.display = 'block';
-
-loader.load('scene.gltf', function (gltf) {
-  loadingDiv.style.display = 'none';
-  skullModel = gltf.scene;
-  
-  const box = new THREE.Box3().setFromObject(skullModel);
-  const center = box.getCenter(new THREE.Vector3());
-  skullModel.position.sub(center); 
-  
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = 3.5 / maxDim; 
-  skullModel.scale.set(scale, scale, scale);
-  
-  skullModel.traverse((node) => {
-    if (node.isMesh) {
-      if (node.material) {
-        node.material.roughness = 0.9; 
-        node.material.metalness = 0.0;
-      }
-    }
-  });
-
-  scene.add(skullModel);
-}, function (xhr) {
-  const percent = Math.round((xhr.loaded / xhr.total) * 100);
-  loadingDiv.innerHTML = `Загрузка 3D-модели... ${percent}%`;
-}, function (error) {
-  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
-});
-
-// --- СОЗДАНИЕ ТЕКСТУРЫ ОГНЯ (ПРОЦЕДУРНОЙ) ---
+// --- ТЕКСТУРА ОГНЯ ---
 function createFireTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128; canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  
-  // Многослойный радиальный градиент для реалистичного пламени
   const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');    // Белое ядро
-  gradient.addColorStop(0.2, 'rgba(255, 255, 150, 1)');  // Желтый
-  gradient.addColorStop(0.4, 'rgba(255, 100, 0, 0.8)');  // Оранжевый
-  gradient.addColorStop(0.7, 'rgba(200, 0, 0, 0.4)');    // Красный
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');          // Прозрачный
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');    
+  gradient.addColorStop(0.2, 'rgba(255, 255, 150, 1)');  
+  gradient.addColorStop(0.4, 'rgba(255, 100, 0, 0.8)');  
+  gradient.addColorStop(0.7, 'rgba(200, 0, 0, 0.4)');    
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');          
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 128, 128);
-  
   return new THREE.CanvasTexture(canvas);
 }
 
-const fireTexture = createFireTexture();
-
-// Создаем светящиеся спрайты для глаз
 const fireMaterial = new THREE.SpriteMaterial({
-  map: fireTexture,
-  blending: THREE.AdditiveBlending, // Светится поверх модели
+  map: createFireTexture(),
+  blending: THREE.AdditiveBlending, 
   depthWrite: false,
   transparent: true
 });
 
+// Спрайты огня (Добавляем в группу!)
 const leftFire = new THREE.Sprite(fireMaterial.clone());
 leftFire.position.set(-0.6, 0.2, 1.4);
 leftFire.scale.set(0.8, 1.0, 1); 
-scene.add(leftFire);
+skullGroup.add(leftFire);
 
 const rightFire = new THREE.Sprite(fireMaterial.clone());
 rightFire.position.set(0.6, 0.2, 1.4);
 rightFire.scale.set(0.8, 1.0, 1);
-scene.add(rightFire);
+skullGroup.add(rightFire);
 
-// --- ЧАСТИЦЫ ДЛЯ ГЛАЗ (Искры) ---
+// --- ИСКРЫ ИЗ ГЛАЗ ---
 const eyeSparksGeo = new THREE.BufferGeometry();
 const eyeSparkCount = 30;
 const eyeSparkPos = new Float32Array(eyeSparkCount * 3);
 const eyeSparkData = [];
 
-// Инициализация искр для левого и правого глаза
 for(let i = 0; i < eyeSparkCount; i++) {
   const isLeft = i % 2 === 0;
-  eyeSparkData.push({
-    isLeft: isLeft,
-    offsetX: (Math.random() - 0.5) * 0.2,
-    y: Math.random() * 0.5, 
-    z: Math.random() * 0.2,
-    speed: 0.01 + Math.random() * 0.02
-  });
+  eyeSparkData.push({ isLeft: isLeft, speed: 0.01 + Math.random() * 0.02 });
   eyeSparkPos[i*3] = isLeft ? -0.6 : 0.6;
   eyeSparkPos[i*3+1] = 0.2;
   eyeSparkPos[i*3+2] = 1.4;
@@ -160,30 +112,55 @@ for(let i = 0; i < eyeSparkCount; i++) {
 eyeSparksGeo.setAttribute('position', new THREE.BufferAttribute(eyeSparkPos, 3));
 
 const sparkMat = new THREE.PointsMaterial({
-  color: 0xffaa00,
-  size: 0.05,
-  blending: THREE.AdditiveBlending,
-  transparent: true,
-  depthWrite: false
+  color: 0xffaa00, size: 0.05, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false
 });
 const eyeSparkSystem = new THREE.Points(eyeSparksGeo, sparkMat);
-scene.add(eyeSparkSystem);
+skullGroup.add(eyeSparkSystem); // Добавляем в группу!
 
-// --- ФОНОВЫЕ ЧАСТИЦЫ ---
+// --- ЗАГРУЗКА МОДЕЛИ ---
+const loader = new GLTFLoader();
+const loadingDiv = document.getElementById('loading');
+loadingDiv.style.display = 'block';
+
+loader.load('scene.gltf', function (gltf) {
+  loadingDiv.style.display = 'none';
+  const model = gltf.scene;
+  
+  // Центрируем и масштабируем
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.sub(center); 
+  
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = 3.5 / maxDim; 
+  model.scale.set(scale, scale, scale);
+  
+  model.traverse((node) => {
+    if (node.isMesh && node.material) {
+      node.material.roughness = 0.9; 
+      node.material.metalness = 0.0;
+    }
+  });
+
+  skullGroup.add(model); // Добавляем саму модель в нашу группу
+}, function (xhr) {
+  const percent = Math.round((xhr.loaded / xhr.total) * 100);
+  loadingDiv.innerHTML = `Загрузка 3D-модели... ${percent}%`;
+}, function (error) {
+  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
+});
+
+// --- ФОНОВЫЕ ЧАСТИЦЫ (Остаются в сцене) ---
 const particleCount = 150;
 const particlesGeo = new THREE.BufferGeometry();
 const positions = new Float32Array(particleCount * 3);
 const velocities = [];
-
 for (let i = 0; i < particleCount; i++) {
   positions[i * 3] = (Math.random() - 0.5) * 8;
   positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
   positions[i * 3 + 2] = (Math.random() - 0.5) * 4;
-  velocities.push({
-    x: (Math.random() - 0.5) * 0.01,
-    y: Math.random() * 0.02 + 0.005,
-    z: (Math.random() - 0.5) * 0.01
-  });
+  velocities.push({ x: (Math.random() - 0.5) * 0.01, y: Math.random() * 0.02 + 0.005, z: (Math.random() - 0.5) * 0.01 });
 }
 particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
@@ -191,16 +168,13 @@ const sparkCanvas = document.createElement('canvas');
 sparkCanvas.width = 32; sparkCanvas.height = 32;
 const sCtx = sparkCanvas.getContext('2d');
 const sGrad = sCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
-sGrad.addColorStop(0, 'rgba(255, 200, 100, 1)');
-sGrad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+sGrad.addColorStop(0, 'rgba(255, 200, 100, 1)'); sGrad.addColorStop(1, 'rgba(255, 0, 0, 0)');
 sCtx.fillStyle = sGrad; sCtx.fillRect(0, 0, 32, 32);
-const sparkTexture = new THREE.CanvasTexture(sparkCanvas);
 
 const particlesMat = new THREE.PointsMaterial({
-  size: 0.12, map: sparkTexture, transparent: true, opacity: 0.7,
+  size: 0.12, map: new THREE.CanvasTexture(sparkCanvas), transparent: true, opacity: 0.7,
   blending: THREE.AdditiveBlending, depthWrite: false
 });
-
 const particleSystem = new THREE.Points(particlesGeo, particlesMat);
 scene.add(particleSystem);
 
@@ -211,38 +185,29 @@ function animate() {
   requestAnimationFrame(animate);
   const time = clock.getElapsedTime();
 
-  if (skullModel) {
-    skullModel.position.y = Math.sin(time * 1.2) * 0.1;
-    skullModel.rotation.y = Math.sin(time * 0.6) * 0.15;
-    skullModel.rotation.x = Math.cos(time * 0.8) * 0.05;
-  }
+  // Анимируем ВСЮ ГРУППУ (череп + глаза + свет двигаются вместе)
+  skullGroup.position.y = Math.sin(time * 1.2) * 0.1;
+  skullGroup.rotation.y = Math.sin(time * 0.6) * 0.15;
+  skullGroup.rotation.x = Math.cos(time * 0.8) * 0.05;
 
-  // Огонь в глазах
-  // Хаотично меняем размер (имитация колыхания пламени)
+  // Мерцание огня
   const flickerL = 0.8 + Math.sin(time * 15) * 0.1 + Math.random() * 0.1;
   const flickerR = 0.8 + Math.cos(time * 12) * 0.1 + Math.random() * 0.1;
-  
   leftFire.scale.set(flickerL * 0.8, flickerL * 1.2, 1);
   rightFire.scale.set(flickerR * 0.8, flickerR * 1.2, 1);
-  
-  // Меняем яркость (прозрачность)
   leftFire.material.opacity = 0.8 + Math.random() * 0.2;
   rightFire.material.opacity = 0.8 + Math.random() * 0.2;
 
-  // Пульсация точечного света
+  // Пульсация света
   leftEyeLight.intensity = 3.0 + Math.random() * 1.5;
   rightEyeLight.intensity = 3.0 + Math.random() * 1.5;
 
-  // Анимация искр из глазниц
+  // Движение искр в глазах
   const ePos = eyeSparkSystem.geometry.attributes.position.array;
   for(let i = 0; i < eyeSparkCount; i++) {
     let data = eyeSparkData[i];
-    ePos[i*3+1] += data.speed; // Летят вверх
-    
-    // Небольшое смещение в стороны
+    ePos[i*3+1] += data.speed; 
     ePos[i*3] += Math.sin(time * 10 + i) * 0.005; 
-
-    // Если искра улетела высоко - сбрасываем вниз
     if(ePos[i*3+1] > 0.8) {
       ePos[i*3+1] = 0.2;
       ePos[i*3] = (data.isLeft ? -0.6 : 0.6) + (Math.random() - 0.5) * 0.1;
