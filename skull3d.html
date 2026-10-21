@@ -10,7 +10,7 @@
 </style>
 </head>
 <body>
-<div id="loading">Загрузка 3D-модели...<br>Пожалуйста, подождите.</div>
+<div id="loading">Загрузка 3D-модели...</div>
 
 <script type="importmap">
 {
@@ -25,88 +25,88 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// 1. Настройка сцены и рендера
 const scene = new THREE.Scene();
-// alpha: true делает фон прозрачным
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.0; // Чуть приглушили общую яркость
 document.body.appendChild(renderer.domElement);
 
-// 2. Освещение
-const ambientLight = new THREE.AmbientLight(0x445577, 1.5); // Холодный общий свет
+// --- ОСВЕЩЕНИЕ ---
+// 1. Общий холодный фоновый свет (чтобы череп не был черным)
+const ambientLight = new THREE.AmbientLight(0x334455, 1.2); 
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 2); // Основной свет сбоку
-dirLight.position.set(5, 5, 5);
+// 2. Свет спереди-слева (как будто от твоих свечей)
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+dirLight.position.set(2, 3, 4);
 scene.add(dirLight);
 
-// Красный свет для глазниц (светит изнутри черепа)
-const redLight = new THREE.PointLight(0xff0000, 25, 10);
-redLight.position.set(0, 1, 1.5); // Если свет не в глазах — эту строчку будем подкручивать
-scene.add(redLight);
+// 3. Синий свет сзади (для крутого контрового света)
+const backLight = new THREE.DirectionalLight(0x4488ff, 2);
+backLight.position.set(-2, 1, -3);
+scene.add(backLight);
 
-camera.position.z = 5;
+// 4. ДВА ТОЧЕЧНЫХ СВЕТА ДЛЯ ГЛАЗ (Адское свечение)
+const leftEyeLight = new THREE.PointLight(0xff2200, 4, 2.5); // Яркость 4, радиус действия 2.5
+leftEyeLight.position.set(-0.3, 0.4, 1.6); // Координаты левого глаза
 
-// 3. Загрузка модели GLTF
+const rightEyeLight = new THREE.PointLight(0xff2200, 4, 2.5);
+rightEyeLight.position.set(0.3, 0.4, 1.6); // Координаты правого глаза
+
+scene.add(leftEyeLight);
+scene.add(rightEyeLight);
+
+camera.position.z = 6.5; // Отодвинули камеру, чтобы череп не обрезался при левитации
+
+// --- ЗАГРУЗКА МОДЕЛИ ---
 const loader = new GLTFLoader();
 let skullModel = null;
 const loadingDiv = document.getElementById('loading');
-
-// Показываем плашку загрузки
 loadingDiv.style.display = 'block';
 
-// Загружаем scene.gltf (он сам подтянет scene.bin и папку textures)
 loader.load('scene.gltf', function (gltf) {
-  loadingDiv.style.display = 'none'; // Прячем плашку после загрузки
-  
+  loadingDiv.style.display = 'none';
   skullModel = gltf.scene;
   
-  // Автоматическое центрирование и масштабирование
   const box = new THREE.Box3().setFromObject(skullModel);
   const center = box.getCenter(new THREE.Vector3());
-  skullModel.position.sub(center); // Центрируем по нулям
+  skullModel.position.sub(center); 
   
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = 3.5 / maxDim; // Делаем череп адекватного размера
+  const scale = 3.5 / maxDim; 
   skullModel.scale.set(scale, scale, scale);
   
-  // Настройка материалов и теней
   skullModel.traverse((node) => {
     if (node.isMesh) {
-      node.castShadow = true;
-      node.receiveShadow = true;
-      // Улучшаем видимость текстур
+      // Делаем материал чуть темнее, чтобы модель не бликовала белым
       if (node.material) {
-        node.material.envMapIntensity = 1.5;
+        node.material.roughness = 0.8; 
+        node.material.metalness = 0.1;
       }
     }
   });
 
   scene.add(skullModel);
-
 }, function (xhr) {
-  // Прогресс загрузки (в процентах)
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
   loadingDiv.innerHTML = `Загрузка 3D-модели... ${percent}%`;
 }, function (error) {
-  console.error("Ошибка загрузки:", error);
-  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.<br>Проверь, что файлы scene.gltf, scene.bin и папка textures лежат в корне репозитория.";
+  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
 });
 
-// 4. 3D Частицы (Искры)
-const particleCount = 300;
+// --- ЧАСТИЦЫ (Искры) ---
+const particleCount = 200;
 const particlesGeo = new THREE.BufferGeometry();
 const positions = new Float32Array(particleCount * 3);
 const velocities = [];
 
 for (let i = 0; i < particleCount; i++) {
-  positions[i * 3] = (Math.random() - 0.5) * 10;
-  positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
-  positions[i * 3 + 2] = (Math.random() - 0.5) * 5;
+  positions[i * 3] = (Math.random() - 0.5) * 8;
+  positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
+  positions[i * 3 + 2] = (Math.random() - 0.5) * 4;
   velocities.push({
     x: (Math.random() - 0.5) * 0.01,
     y: Math.random() * 0.02 + 0.005,
@@ -115,7 +115,6 @@ for (let i = 0; i < particleCount; i++) {
 }
 particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-// Генерируем круглую текстуру для частиц прямо в коде
 const canvas = document.createElement('canvas');
 canvas.width = 16; canvas.height = 16;
 const ctx = canvas.getContext('2d');
@@ -123,11 +122,11 @@ ctx.beginPath(); ctx.arc(8, 8, 8, 0, Math.PI * 2); ctx.fillStyle = 'white'; ctx.
 const particleTexture = new THREE.CanvasTexture(canvas);
 
 const particlesMat = new THREE.PointsMaterial({
-  color: 0xff2200,
-  size: 0.15,
+  color: 0xff3300,
+  size: 0.1,
   map: particleTexture,
   transparent: true,
-  opacity: 0.8,
+  opacity: 0.6,
   blending: THREE.AdditiveBlending,
   depthWrite: false
 });
@@ -135,7 +134,7 @@ const particlesMat = new THREE.PointsMaterial({
 const particleSystem = new THREE.Points(particlesGeo, particlesMat);
 scene.add(particleSystem);
 
-// 5. Анимация
+// --- АНИМАЦИЯ ---
 const clock = new THREE.Clock();
 
 function animate() {
@@ -143,29 +142,32 @@ function animate() {
   const time = clock.getElapsedTime();
 
   if (skullModel) {
-    // Левитация
-    skullModel.position.y = Math.sin(time * 1.5) * 0.3;
-    // Легкий поворот головы
-    skullModel.rotation.y = Math.sin(time * 0.5) * 0.2;
-    skullModel.rotation.x = Math.cos(time * 0.7) * 0.1;
+    // ОЧЕНЬ плавная левитация (амплитуда всего 0.1 вместо 0.3)
+    skullModel.position.y = Math.sin(time * 1.2) * 0.1;
+    
+    // Легкий, медленный поворот
+    skullModel.rotation.y = Math.sin(time * 0.6) * 0.15;
+    skullModel.rotation.x = Math.cos(time * 0.8) * 0.05;
   }
 
-  // Движение частиц вверх
+  // Пульсация света в глазах
+  const pulse = 3 + Math.sin(time * 6) * 2; // Меняется от 1 до 5
+  leftEyeLight.intensity = pulse;
+  rightEyeLight.intensity = pulse;
+
+  // Движение искр
   const posArray = particleSystem.geometry.attributes.position.array;
   for (let i = 0; i < particleCount; i++) {
     posArray[i * 3] += velocities[i].x;
     posArray[i * 3 + 1] += velocities[i].y;
     posArray[i * 3 + 2] += velocities[i].z;
 
-    if (posArray[i * 3 + 1] > 5) {
-      posArray[i * 3 + 1] = -5;
-      posArray[i * 3] = (Math.random() - 0.5) * 10;
+    if (posArray[i * 3 + 1] > 4) {
+      posArray[i * 3 + 1] = -4;
+      posArray[i * 3] = (Math.random() - 0.5) * 8;
     }
   }
   particleSystem.geometry.attributes.position.needsUpdate = true;
-  
-  // Пульсация красного света в глазницах
-  redLight.intensity = 25 + Math.sin(time * 8) * 8;
 
   renderer.render(scene, camera);
 }
