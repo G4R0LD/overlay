@@ -44,21 +44,17 @@ camera.position.z = 6.0;
 const ambientLight = new THREE.AmbientLight(0x112233, 0.4); 
 scene.add(ambientLight);
 
-// Лунный свет СЗАДИ (создает синий контур)
 const moonLight = new THREE.DirectionalLight(0x88bbff, 2.0);
 moonLight.position.set(-2, 5, -5); 
 scene.add(moonLight);
 
-// Легкий подсвет СПРАВА (чтобы второй бок не был абсолютно черным)
 const sideLight = new THREE.DirectionalLight(0x88ccff, 0.5);
 sideLight.position.set(5, 1, 2); 
 scene.add(sideLight);
 
-// --- ДИНАМИЧЕСКИЙ СВЕТ ОТ СВЕЧИ (СЛЕВА-СПЕРЕДИ) ---
-// Используем PointLight, чтобы свет рассеивался как от реального огня.
-// Яркость (второй параметр) для точечного света указывается в люменах, поэтому она больше.
+// --- ДИНАМИЧЕСКИЙ СВЕТ ОТ СВЕЧИ ---
 const candleLight = new THREE.PointLight(0xffaa55, 25.0, 20.0);
-const baseLightPos = new THREE.Vector3(-4, 2, 4); // Базовая позиция (запомнили)
+const baseLightPos = new THREE.Vector3(-4, 2, 4); 
 candleLight.position.copy(baseLightPos);
 scene.add(candleLight);
 
@@ -106,7 +102,7 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   loadingDiv.style.color = "red";
 });
 
-// --- АНИМАЦИЯ СВЕТА ---
+// --- АНИМАЦИЯ СВЕТА (МЕДЛЕННЕЕ И ШИРЕ) ---
 const clock = new THREE.Clock();
 
 function render() {
@@ -114,16 +110,16 @@ function render() {
   
   const time = clock.getElapsedTime();
 
-  // 1. Меняем яркость (имитация порывов пламени)
-  // Комбинируем синусоиды с разной частотой и добавляем немного рандома
-  const flickerIntensity = Math.sin(time * 12) * 0.3 + Math.cos(time * 25) * 0.2 + Math.random() * 0.15;
-  candleLight.intensity = 25.0 + (flickerIntensity * 15.0); // Яркость гуляет примерно от 15 до 35
+  // 1. Меняем яркость (плавное "дыхание" огня)
+  // Частоты снижены: 12 -> 8.5, 25 -> 17. Рандом урезан, чтобы не было стробоскопа.
+  const flickerIntensity = Math.sin(time * 8.5) * 0.3 + Math.cos(time * 17) * 0.2 + Math.sin(time * 3) * 0.1;
+  candleLight.intensity = 25.0 + (flickerIntensity * 15.0); 
 
-  // 2. Слегка двигаем сам источник света (эффект танцующего огонька)
-  // Сдвиг очень маленький (0.1), чтобы тыквы не "прыгали", но тени шевелились
-  candleLight.position.x = baseLightPos.x + Math.sin(time * 8) * 0.1;
-  candleLight.position.y = baseLightPos.y + Math.cos(time * 10) * 0.1;
-  candleLight.position.z = baseLightPos.z + Math.sin(time * 6) * 0.05;
+  // 2. Движение источника света (увеличен радиус)
+  // Амплитуда по X и Y увеличена с 0.1 до 0.15, по Z с 0.05 до 0.1
+  candleLight.position.x = baseLightPos.x + Math.sin(time * 5.5) * 0.15;
+  candleLight.position.y = baseLightPos.y + Math.cos(time * 7.0) * 0.15;
+  candleLight.position.z = baseLightPos.z + Math.sin(time * 4.0) * 0.1;
 
   renderer.render(scene, camera);
 }
