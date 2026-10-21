@@ -6,7 +6,7 @@
 <style>
   html, body { margin:0; padding:0; background:transparent; overflow:hidden; width:100%; height:100%; }
   canvas { display:block; pointer-events:none; }
-  #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: red; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
+  #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
 </head>
 <body>
@@ -24,7 +24,6 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-// Подключаем модули для эффекта свечения (Bloom)
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -33,44 +32,52 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+
+// ВАЖНО: принудительно делаем фон прозрачным
+renderer.setClearColor(0x000000, 0); 
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
-// --- НАСТРОЙКА BLOOM (СВЕЧЕНИЯ) ---
+// --- НАСТРОЙКА BLOOM (Исправленная) ---
 const renderScene = new RenderPass(scene, camera);
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  1.5,  // Сила свечения (strength)
-  0.4,  // Радиус размытия (radius)
-  0.85  // Порог срабатывания (threshold) - свечение появится только у самых ярких пикселей (красных глаз)
+  0.8,  // Сила свечения (было 1.5, стало 0.8)
+  0.4,  // Радиус размытия
+  0.95  // Порог (было 0.85). Светятся ТОЛЬКО самые яркие пиксели
 );
 const composer = new EffectComposer(renderer);
+// Включаем прозрачность для композера
+composer.renderTarget1.texture.format = THREE.RGBAFormat;
+composer.renderTarget2.texture.format = THREE.RGBAFormat;
+
 composer.addPass(renderScene);
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
 // --- ОСВЕЩЕНИЕ ---
-// 1. Чуть более яркий общий свет, чтобы проявить текстуру кости
-const ambientLight = new THREE.AmbientLight(0x556688, 2.0); 
+// 1. Холодный общий свет (чтобы череп был серым, а не красным)
+const ambientLight = new THREE.AmbientLight(0x667799, 2.5); 
 scene.add(ambientLight);
 
-// 2. Основной свет спереди-слева
+// 2. Основной свет (проявляет текстуру)
 const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
 dirLight.position.set(2, 3, 4);
 scene.add(dirLight);
 
 // 3. Синий контровой свет сзади
-const backLight = new THREE.DirectionalLight(0x4488ff, 3.0);
+const backLight = new THREE.DirectionalLight(0x4488ff, 2.5);
 backLight.position.set(-2, 1, -3);
 scene.add(backLight);
 
-// 4. ТВОИ НАСТРОЙКИ СВЕТА ДЛЯ ГЛАЗ (с добавленным блеском)
-const leftEyeLight = new THREE.PointLight(0xff2200, 6, 3.0); // Чуть ярче для блума
+// 4. Свет для глаз (УМЕНЬШЕНА яркость и радиус)
+const leftEyeLight = new THREE.PointLight(0xff2200, 2.0, 1.2); // Было 6, 3.0
 leftEyeLight.position.set(-0.6, 0.2, 1.3); 
 
-const rightEyeLight = new THREE.PointLight(0xff2200, 6, 3.0);
+const rightEyeLight = new THREE.PointLight(0xff2200, 2.0, 1.2);
 rightEyeLight.position.set(0.6, 0.2, 1.3); 
 
 scene.add(leftEyeLight);
@@ -100,7 +107,6 @@ loader.load('scene.gltf', function (gltf) {
   skullModel.traverse((node) => {
     if (node.isMesh) {
       if (node.material) {
-        // Делаем кость более шершавой, убираем эффект мокрого пластика
         node.material.roughness = 0.9; 
         node.material.metalness = 0.0;
       }
@@ -139,13 +145,12 @@ const ctx = canvas.getContext('2d');
 ctx.beginPath(); ctx.arc(8, 8, 8, 0, Math.PI * 2); ctx.fillStyle = 'white'; ctx.fill();
 const particleTexture = new THREE.CanvasTexture(canvas);
 
-// Цвет искр сделаем более ярким, чтобы они тоже попадали под Bloom
 const particlesMat = new THREE.PointsMaterial({
-  color: 0xff6600,
-  size: 0.12,
+  color: 0xff3300,
+  size: 0.08, // Чуть уменьшили искры
   map: particleTexture,
   transparent: true,
-  opacity: 0.8,
+  opacity: 0.6,
   blending: THREE.AdditiveBlending,
   depthWrite: false
 });
@@ -166,8 +171,8 @@ function animate() {
     skullModel.rotation.x = Math.cos(time * 0.8) * 0.05;
   }
 
-  // Пульсация света в глазах (делаем её более плавной)
-  const pulse = 5 + Math.sin(time * 4) * 2; 
+  // Пульсация света (теперь она не такая экстремальная)
+  const pulse = 1.5 + Math.sin(time * 4) * 0.5; 
   leftEyeLight.intensity = pulse;
   rightEyeLight.intensity = pulse;
 
@@ -184,7 +189,8 @@ function animate() {
   }
   particleSystem.geometry.attributes.position.needsUpdate = true;
 
-  // ВАЖНО: Теперь рендерим через composer, а не напрямую через renderer
+  // Обязательно очищаем буфер с прозрачностью перед рендером
+  renderer.clear();
   composer.render();
 }
 
