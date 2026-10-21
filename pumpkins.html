@@ -6,7 +6,7 @@
 <style>
   html, body { margin:0; padding:0; background:transparent; overflow:hidden; width:100%; height:100%; }
   canvas { display:block; pointer-events:none; }
-  #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
+  #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -38,45 +38,49 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
-// --- ОСВЕЩЕНИЕ СЦЕНЫ ---
-// Мягкий общий свет, чтобы тыквы не были слишком тёмными
-const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
+// --- ОСВЕЩЕНИЕ ---
+const ambientLight = new THREE.AmbientLight(0xffffff, 2.0); 
 scene.add(ambientLight);
 
-// Основной тёплый свет, чтобы подчеркнуть оранжевый цвет
-const warmLight = new THREE.DirectionalLight(0xffaa66, 2.0);
+const warmLight = new THREE.DirectionalLight(0xffaa66, 2.5);
 warmLight.position.set(2, 3, 4);
 scene.add(warmLight);
 
-// --- ГРУППА ДЛЯ ТЫКВ (чтобы всё двигалось вместе) ---
+// --- ГРУППА ДЛЯ ТЫКВ ---
 const pumpkinGroup = new THREE.Group();
 scene.add(pumpkinGroup);
+
+// --- ТЕСТОВЫЙ КРАСНЫЙ КУБ (Удалим его, когда тыквы появятся) ---
+const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+const material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
+const cube = new THREE.Mesh( geometry, material );
+// cube.position.set(0, 0, 0);
+// scene.add( cube ); // Раскомментируй эту строчку, если хочешь проверить, работает ли сцена вообще
 
 // --- ЗАГРУЗКА МОДЕЛИ ---
 const loader = new GLTFLoader();
 const loadingDiv = document.getElementById('loading');
-loadingDiv.style.display = 'block';
 
-// ВАЖНО: Проверь имя файла. Если у тебя не scene.gltf, поменяй здесь.
 loader.load('pumpkins_model/scene.gltf', function (gltf) {
-  loadingDiv.style.display = 'none';
   const model = gltf.scene;
   
-  // Центрируем модель
   const box = new THREE.Box3().setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  
+  // Показываем размер модели на экране (чтобы понять, не равна ли она нулю)
+  loadingDiv.innerHTML = `Успех! Размер модели: <br> X: ${size.x.toFixed(2)} | Y: ${size.y.toFixed(2)} | Z: ${size.z.toFixed(2)}`;
+  
+  // Центрируем модель
   model.position.sub(center); 
   
-  // Масштабируем под наш угол
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = 4.0 / maxDim; // Размер тыкв. Можешь увеличить или уменьшить.
+  // Подгоняем размер (если размер 0, то мы делим на 0, поэтому страхуемся)
+  const maxDim = Math.max(size.x, size.y, size.z) || 1; 
+  const scale = 3.0 / maxDim; // Уменьшил до 3.0 для теста
   model.scale.set(scale, scale, scale);
   
-  // Настраиваем материалы
   model.traverse((node) => {
     if (node.isMesh && node.material) {
-      // Делаем материал чуть более матовым, чтобы убрать лишний блеск
       node.material.roughness = 0.8; 
       node.material.metalness = 0.1;
     }
@@ -84,30 +88,23 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
 
   pumpkinGroup.add(model); 
   
-  // --- ДОБАВЛЯЕМ СВЕТ ВНУТРЬ ТЫКВ ---
-  // Создаём тёплый точечный свет, который будет имитировать огонь изнутри
-  const pumpkinLight = new THREE.PointLight(0xff6600, 3.0, 5.0);
-  pumpkinLight.position.set(0, 0.5, 0.5); // Позиция внутри группы тыкв
+  // Свет внутри
+  const pumpkinLight = new THREE.PointLight(0xff6600, 5.0, 10.0);
+  pumpkinLight.position.set(0, 1, 1); 
   pumpkinGroup.add(pumpkinLight);
-  
-  // Добавляем ещё пару источников для объёма (опционально)
-  const pumpkinLight2 = new THREE.PointLight(0xff4400, 2.0, 4.0);
-  pumpkinLight2.position.set(-1, 0.2, 0.8);
-  pumpkinGroup.add(pumpkinLight2);
+
+  // СТАВИМ ТЫКВЫ РОВНО В ЦЕНТР ЭКРАНА
+  pumpkinGroup.position.set(0, 0, 0); 
+  pumpkinGroup.rotation.y = 0; 
 
 }, function (xhr) {
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
   loadingDiv.innerHTML = `Загрузка 3D-тыкв... ${percent}%`;
 }, function (error) {
-  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf. Проверь имя файла и папку textures.";
+  console.error(error);
+  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
+  loadingDiv.style.color = "red";
 });
-
-// --- ПОЗИЦИОНИРОВАНИЕ ---
-// Ставим группу в правый нижний угол. 
-// Координаты подобраны примерно, ты сможешь двигать их в OBS.
-pumpkinGroup.position.set(2.5, -2.0, 0); // X, Y, Z. X - вправо, Y - вниз, Z - глубина.
-// Наклоняем тыквы, чтобы они смотрели немного в центр
-pumpkinGroup.rotation.y = -0.3; 
 
 // --- АНИМАЦИЯ ---
 const clock = new THREE.Clock();
@@ -116,9 +113,8 @@ function animate() {
   requestAnimationFrame(animate);
   const time = clock.getElapsedTime();
 
-  // Лёгкое покачивание и очень медленное вращение для живости
-  pumpkinGroup.position.y = -2.0 + Math.sin(time * 1.5) * 0.05; 
-  pumpkinGroup.rotation.y = -0.3 + Math.sin(time * 0.5) * 0.1;
+  // Очень легкое вращение (чтобы понять, что 3D работает)
+  pumpkinGroup.rotation.y = Math.sin(time * 0.5) * 0.2;
 
   renderer.render(scene, camera);
 }
