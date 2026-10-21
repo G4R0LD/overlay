@@ -102,7 +102,22 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   loadingDiv.style.color = "red";
 });
 
-// --- АНИМАЦИЯ СВЕТА (МЕДЛЕННЕЕ И ШИРЕ) ---
+// --- ФУНКЦИЯ ШУМА ДЛЯ ОГНЯ (Вместо синусоид) ---
+// Генерирует плавный, но абсолютно случайный сигнал (без повторов)
+const noiseSeed = Math.random() * 100;
+function getNoise(x) {
+  const i = Math.floor(x);
+  const f = x - i;
+  // Псевдослучайные значения для узлов
+  const v1 = Math.sin(i * 12.9898 + noiseSeed) * 43758.5453 % 1;
+  const v2 = Math.sin((i + 1) * 12.9898 + noiseSeed) * 43758.5453 % 1;
+  // Сглаживание (smoothstep)
+  const u = f * f * (3.0 - 2.0 * f);
+  // Интерполяция между v1 и v2
+  return Math.abs(v1 * (1 - u) + v2 * u); 
+}
+
+// --- АНИМАЦИЯ ---
 const clock = new THREE.Clock();
 
 function render() {
@@ -110,13 +125,18 @@ function render() {
   
   const time = clock.getElapsedTime();
 
-  // 1. Меняем яркость (плавное "дыхание" огня)
-  // Частоты снижены: 12 -> 8.5, 25 -> 17. Рандом урезан, чтобы не было стробоскопа.
-  const flickerIntensity = Math.sin(time * 8.5) * 0.3 + Math.cos(time * 17) * 0.2 + Math.sin(time * 3) * 0.1;
-  candleLight.intensity = 25.0 + (flickerIntensity * 15.0); 
+  // 1. Меняем яркость через ШУМ (непредсказуемое мерцание)
+  // Комбинируем два слоя шума: медленный и быстрый, чтобы было реалистично
+  const noise1 = getNoise(time * 3.0);  // Медленные всполохи
+  const noise2 = getNoise(time * 9.0);  // Быстрые колебания
+  
+  // Смешиваем шумы (70% медленного, 30% быстрого)
+  const flickerValue = (noise1 * 0.7) + (noise2 * 0.3);
+  
+  // Применяем яркость (диапазон от 15 до 40)
+  candleLight.intensity = 15.0 + (flickerValue * 25.0); 
 
-  // 2. Движение источника света (увеличен радиус)
-  // Амплитуда по X и Y увеличена с 0.1 до 0.15, по Z с 0.05 до 0.1
+  // 2. Движение источника света (РАДИУС ОСТАВЛЕН КАК ТЫ И ПРОСИЛ)
   candleLight.position.x = baseLightPos.x + Math.sin(time * 5.5) * 0.15;
   candleLight.position.y = baseLightPos.y + Math.cos(time * 7.0) * 0.15;
   candleLight.position.z = baseLightPos.z + Math.sin(time * 4.0) * 0.1;
