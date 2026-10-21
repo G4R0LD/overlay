@@ -99,7 +99,7 @@ loader.load('pumpkins_model/scene.gltf', function (gltf) {
   pumpkinGroup.add(innerGlow);
 
   pumpkinGroup.position.set(0, 0, 0); 
-  pumpkinGroup.rotation.set(0, 0, 0); 
+  pumpkinGroup.rotation.set(0, -0.6, 0); 
 
 }, function (xhr) {
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
