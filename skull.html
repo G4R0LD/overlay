@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>💀 Levitating Skull</title>
+<style>
+  html, body { margin:0; padding:0; background:transparent; overflow:hidden;
+               width:100%; height:100%; display: flex; justify-content: center; align-items: center; }
+  canvas { display:block; pointer-events:none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+let W, H;
+function resize() {
+  W = c.width  = innerWidth;
+  H = c.height = innerHeight;
+  c.style.width  = W + 'px';
+  c.style.height = H + 'px';
+}
+addEventListener('resize', resize);
+resize();
+
+// Загружаем твой череп
+const skullImg = new Image();
+skullImg.src = 'skull.png'; 
+
+// Размер черепа на экране (можешь поменять цифру 400 на больше/меньше)
+const SKULL_SIZE = 400; 
+
+// Координаты глазниц (в процентах от размера картинки). 
+// Если свечение будет не там, мы просто подкрутим эти цифры!
+const EYE_LEFT = { x: 0.32, y: 0.42 };
+const EYE_RIGHT = { x: 0.68, y: 0.42 };
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  
+  if (!skullImg.complete) {
+    requestAnimationFrame(draw);
+    return;
+  }
+
+  const time = Date.now() / 1000;
+  
+  // Эффект левитации (плавное покачивание вверх-вниз)
+  const floatY = Math.sin(time * 1.5) * 15;
+  // Легкое покачивание из стороны в сторону (эффект 3D)
+  const floatX = Math.cos(time * 0.8) * 5;
+  const rotation = Math.sin(time * 0.5) * 0.03; // Легкий наклон
+
+  // Центр экрана
+  const cx = W / 2 + floatX;
+  const cy = H / 2 + floatY;
+
+  // 1. Мрачная аура вокруг черепа
+  const aura = ctx.createRadialGradient(cx, cy, SKULL_SIZE * 0.2, cx, cy, SKULL_SIZE * 0.8);
+  aura.addColorStop(0, 'rgba(150, 0, 0, 0.15)'); // Темно-красная аура
+  aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = aura;
+  ctx.beginPath();
+  ctx.arc(cx, cy, SKULL_SIZE * 0.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Рисуем череп с наклоном
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+  
+  // Тень от черепа
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 20;
+  
+  ctx.drawImage(skullImg, -SKULL_SIZE / 2, -SKULL_SIZE / 2, SKULL_SIZE, SKULL_SIZE);
+  ctx.restore(); // Возвращаем координаты на место (чтобы глаза не вращались вместе с черепом, если наклон сильный)
+
+  // 3. Светящиеся глаза (режим свечения)
+  ctx.globalCompositeOperation = 'lighter';
+  
+  // Пульсация яркости (как будто дышит)
+  const pulse = 0.6 + Math.sin(time * 3) * 0.4; 
+
+  // Функция для отрисовки одного глаза
+  const drawEye = (eyePercent) => {
+    // Вычисляем позицию глаза с учетом левитации и картинки
+    const ex = cx - SKULL_SIZE/2 + SKULL_SIZE * eyePercent.x;
+    const ey = cy - SKULL_SIZE/2 + SKULL_SIZE * eyePercent.y;
+    
+    // Радиус глаза (зависит от размера черепа)
+    const eyeRadius = SKULL_SIZE * 0.07;
+
+    // Свечение (Глоу)
+    const eyeGlow = ctx.createRadialGradient(ex, ey, 0, ex, ey, eyeRadius * 2.5);
+    eyeGlow.addColorStop(0, `rgba(255, 20, 0, ${pulse})`); // Ярко-красный
+    eyeGlow.addColorStop(0.5, `rgba(200, 0, 0, ${pulse * 0.5})`);
+    eyeGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    
+    ctx.fillStyle = eyeGlow;
+    ctx.beginPath();
+    ctx.arc(ex, ey, eyeRadius * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Яркое ядро глаза
+    ctx.fillStyle = `rgba(255, 100, 100, ${pulse})`;
+    ctx.beginPath();
+    ctx.arc(ex, ey, eyeRadius * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  drawEye(EYE_LEFT);
+  drawEye(EYE_RIGHT);
+
+  // Сбрасываем режим смешивания
+  ctx.globalCompositeOperation = 'source-over';
+
+  requestAnimationFrame(draw);
+}
+
+skullImg.onload = () => {
+  draw();
+};
+</script>
+</body>
+</html>
