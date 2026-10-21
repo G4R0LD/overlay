@@ -2,235 +2,180 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>💀 Dark Fantasy Skull</title>
+<title>💀 3D Skull Overlay</title>
 <style>
-  html, body { margin:0; padding:0; background:transparent; overflow:hidden;
-               width:100%; height:100%; display: flex; justify-content: center; align-items: center; }
-  canvas { display:block; pointer-events:none; position: absolute; top: 0; left: 0; }
-  
-  .skull-wrapper {
-    position: relative;
-    width: 500px;
-    height: 500px;
-    animation: float 6s ease-in-out infinite;
-    z-index: 2;
-    filter: drop-shadow(0 0 30px rgba(150, 0, 0, 0.3)); /* Темная аура вокруг */
-  }
-  
-  @keyframes float {
-    0%, 100% { transform: translateY(0px) rotateZ(0deg); }
-    50% { transform: translateY(-25px) rotateZ(2deg); }
-  }
-
-  .jaw {
-    transform-origin: 250px 350px; /* Центр сустава */
-    animation: chew 8s ease-in-out infinite;
-  }
-  
-  @keyframes chew {
-    0%, 100% { transform: rotate(0deg); }
-    50% { transform: rotate(8deg); }
-  }
-
-  .eye-glow {
-    animation: pulse 3s infinite alternate;
-  }
-  
-  @keyframes pulse {
-    0% { opacity: 0.7; filter: drop-shadow(0 0 15px #ff0000) drop-shadow(0 0 30px #ff0000); }
-    100% { opacity: 1; filter: drop-shadow(0 0 25px #ff0000) drop-shadow(0 0 50px #ff3300); }
-  }
+  html, body { margin:0; padding:0; background:transparent; overflow:hidden; width:100%; height:100%; }
+  canvas { display:block; pointer-events:none; }
+  #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: red; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
 </head>
 <body>
+<div id="loading">Загрузка 3D-модели...<br>Пожалуйста, подождите.</div>
 
-<canvas id="particles"></canvas>
-
-<div class="skull-wrapper">
-  <svg viewBox="0 0 500 500" width="100%" height="100%">
-    <defs>
-      <!-- Текстура кости -->
-      <filter id="boneTexture" x="-10%" y="-10%" width="120%" height="120%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" result="noise" />
-        <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.15 0" in="noise" result="transparentNoise" />
-        <feBlend in="SourceGraphic" in2="transparentNoise" mode="multiply" />
-      </filter>
-
-      <!-- Градиент для объема черепа -->
-      <radialGradient id="skullGradient" cx="40%" cy="30%" r="60%">
-        <stop offset="0%" stop-color="#f4f4f4" />
-        <stop offset="40%" stop-color="#c4c4c4" />
-        <stop offset="80%" stop-color="#7a7a7a" />
-        <stop offset="100%" stop-color="#333333" />
-      </radialGradient>
-
-      <!-- Градиент для челюсти (чуть темнее) -->
-      <linearGradient id="jawGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="#b0b0b0" />
-        <stop offset="100%" stop-color="#4a4a4a" />
-      </linearGradient>
-
-      <!-- Внутренняя тень для глазниц -->
-      <radialGradient id="socketShadow" cx="50%" cy="50%" r="50%">
-        <stop offset="50%" stop-color="#000000" />
-        <stop offset="100%" stop-color="#1a1a1a" />
-      </radialGradient>
-      
-      <!-- Свет из глаз -->
-      <radialGradient id="eyeLight" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="#ffffff" />
-        <stop offset="20%" stop-color="#ff3333" />
-        <stop offset="60%" stop-color="#cc0000" />
-        <stop offset="100%" stop-color="rgba(100,0,0,0)" />
-      </radialGradient>
-    </defs>
-
-    <!-- ЗАДНЯЯ ЧАСТЬ ЧЕРЕПА (Тени и впадины) -->
-    <path d="M 100 200 C 80 100, 180 50, 250 50 C 320 50, 420 100, 400 200 C 400 280, 350 330, 300 350 L 200 350 C 150 330, 100 280, 100 200 Z" fill="url(#skullGradient)" filter="url(#boneTexture)" stroke="#222" stroke-width="2"/>
-    
-    <!-- Лобная кость и надбровные дуги -->
-    <path d="M 140 180 C 180 140, 320 140, 360 180 C 350 220, 320 240, 280 220 C 260 210, 240 210, 220 220 C 180 240, 150 220, 140 180 Z" fill="#d9d9d9" filter="url(#boneTexture)" />
-    
-    <!-- Скуловые кости (выступают) -->
-    <path d="M 110 230 C 130 250, 160 260, 180 270 L 150 300 C 120 280, 100 260, 110 230 Z" fill="#b0b0b0" filter="url(#boneTexture)" stroke="#444" stroke-width="1"/>
-    <path d="M 390 230 C 370 250, 340 260, 320 270 L 350 300 C 380 280, 400 260, 390 230 Z" fill="#b0b0b0" filter="url(#boneTexture)" stroke="#444" stroke-width="1"/>
-
-    <!-- Трещины на черепе (как на референсе) -->
-    <path d="M 160 100 L 180 130 L 170 160 M 180 130 L 210 120" fill="none" stroke="#555" stroke-width="2" stroke-linejoin="round" opacity="0.6"/>
-    <path d="M 330 120 L 310 150 L 330 180 L 300 200 M 310 150 L 280 140" fill="none" stroke="#555" stroke-width="2" stroke-linejoin="round" opacity="0.6"/>
-
-    <!-- ГЛАЗНИЦЫ -->
-    <!-- Левая -->
-    <path d="M 150 200 C 150 170, 200 150, 220 180 C 230 200, 220 240, 190 240 C 160 240, 150 220, 150 200 Z" fill="url(#socketShadow)" stroke="#111" stroke-width="4"/>
-    <!-- Правая -->
-    <path d="M 350 200 C 350 170, 300 150, 280 180 C 270 200, 280 240, 310 240 C 340 240, 350 220, 350 200 Z" fill="url(#socketShadow)" stroke="#111" stroke-width="4"/>
-
-    <!-- НОС -->
-    <path d="M 250 210 L 230 280 L 270 280 Z" fill="#111" stroke="#333" stroke-width="3" stroke-linejoin="round"/>
-    <!-- Перегородка носа -->
-    <path d="M 250 210 L 250 260" stroke="#444" stroke-width="2" />
-
-    <!-- ВЕРХНЯЯ ЧЕЛЮСТЬ -->
-    <path d="M 170 320 C 200 300, 300 300, 330 320 L 320 350 L 180 350 Z" fill="url(#skullGradient)" filter="url(#boneTexture)" />
-    
-    <!-- Зубы (Верхние) -->
-    <g fill="#e0e0e0" stroke="#333" stroke-width="1.5">
-      <!-- Центральные резцы -->
-      <path d="M 230 320 L 245 320 L 245 340 L 230 340 Z" />
-      <path d="M 255 320 L 270 320 L 270 340 L 255 340 Z" />
-      <!-- Боковые -->
-      <path d="M 210 322 L 225 322 L 225 338 L 210 338 Z" />
-      <path d="M 275 322 L 290 322 L 290 338 L 275 338 Z" />
-      <!-- Клыки -->
-      <path d="M 195 324 L 205 324 L 205 340 L 195 336 Z" />
-      <path d="M 295 324 L 305 324 L 305 336 L 295 340 Z" />
-    </g>
-
-    <!-- НИЖНЯЯ ЧЕЛЮСТЬ (Анимированная) -->
-    <g class="jaw">
-      <!-- Основа челюсти -->
-      <path d="M 160 350 C 160 420, 340 420, 340 350 L 320 380 C 280 410, 220 410, 180 380 Z" fill="url(#jawGradient)" filter="url(#boneTexture)" stroke="#222" stroke-width="2"/>
-      
-      <!-- Зубы (Нижние) -->
-      <g fill="#e0e0e0" stroke="#333" stroke-width="1.5">
-        <path d="M 230 350 L 245 350 L 245 365 L 230 365 Z" />
-        <path d="M 255 350 L 270 350 L 270 365 L 255 365 Z" />
-        <path d="M 210 352 L 225 352 L 225 365 L 210 365 Z" />
-        <path d="M 275 352 L 290 352 L 290 365 L 275 365 Z" />
-        <!-- Нижние клыки -->
-        <path d="M 195 354 L 205 354 L 205 368 L 195 368 Z" />
-        <path d="M 295 354 L 305 354 L 305 368 L 295 368 Z" />
-      </g>
-      
-      <!-- Тень под челюстью для объема -->
-      <path d="M 170 380 C 220 400, 280 400, 330 380 C 280 410, 220 410, 170 380 Z" fill="#111" opacity="0.6" />
-    </g>
-
-    <!-- Светящиеся глаза (Поверх всего) -->
-    <g class="eye-glow">
-      <circle cx="185" cy="200" r="30" fill="url(#eyeLight)" />
-      <circle cx="315" cy="200" r="30" fill="url(#eyeLight)" />
-      <!-- Яркие зрачки -->
-      <circle cx="185" cy="200" r="6" fill="#fff" />
-      <circle cx="315" cy="200" r="6" fill="#fff" />
-    </g>
-  </svg>
-</div>
-
-<script>
-// --- Система частиц (Пепел и искры) ---
-const canvas = document.getElementById('particles');
-const ctx = canvas.getContext('2d');
-let W, H;
-
-function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
-
-class Particle {
-  constructor(isEmber) {
-    this.isEmber = isEmber;
-    // Спавн вокруг черепа
-    this.x = W/2 + (Math.random() - 0.5) * 400;
-    this.y = H/2 + (Math.random() - 0.5) * 400;
-    
-    this.vx = (Math.random() - 0.5) * 1.5;
-    this.vy = (Math.random() - 1) * 2; // Летят вверх
-    
-    if (isEmber) {
-      this.size = Math.random() * 3 + 1;
-      this.life = 1.0;
-      this.decay = Math.random() * 0.02 + 0.01;
-    } else {
-      this.size = Math.random() * 2 + 0.5;
-      this.life = Math.random() * 0.5 + 0.1; // Пепел почти прозрачный
-      this.decay = Math.random() * 0.005;
-    }
-  }
-  update() {
-    this.x += this.vx + Math.sin(this.y * 0.02) * 0.5; // Закручивание
-    this.y += this.vy;
-    this.life -= this.decay;
-  }
-  draw() {
-    if (this.life <= 0) return;
-    if (this.isEmber) {
-      // Оранжевые искры
-      ctx.fillStyle = `rgba(255, ${Math.random() * 100 + 50}, 0, ${this.life})`;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = '#ff3300';
-    } else {
-      // Серый пепел
-      ctx.fillStyle = `rgba(150, 150, 150, ${this.life * 0.5})`;
-      ctx.shadowBlur = 0;
-    }
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
   }
 }
+</script>
 
-let particles = [];
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-function animate() {
-  ctx.clearRect(0, 0, W, H);
+// 1. Настройка сцены и рендера
+const scene = new THREE.Scene();
+// alpha: true делает фон прозрачным
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+// 2. Освещение
+const ambientLight = new THREE.AmbientLight(0x445577, 1.5); // Холодный общий свет
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 2); // Основной свет сбоку
+dirLight.position.set(5, 5, 5);
+scene.add(dirLight);
+
+// Красный свет для глазниц (светит изнутри черепа)
+const redLight = new THREE.PointLight(0xff0000, 25, 10);
+redLight.position.set(0, 1, 1.5); // Если свет не в глазах — эту строчку будем подкручивать
+scene.add(redLight);
+
+camera.position.z = 5;
+
+// 3. Загрузка модели GLTF
+const loader = new GLTFLoader();
+let skullModel = null;
+const loadingDiv = document.getElementById('loading');
+
+// Показываем плашку загрузки
+loadingDiv.style.display = 'block';
+
+// Загружаем scene.gltf (он сам подтянет scene.bin и папку textures)
+loader.load('scene.gltf', function (gltf) {
+  loadingDiv.style.display = 'none'; // Прячем плашку после загрузки
   
-  // Спавн частиц
-  if (Math.random() < 0.15) particles.push(new Particle(true)); // Искры
-  if (Math.random() < 0.3) particles.push(new Particle(false)); // Пепел
-
-  particles.forEach((p, index) => {
-    p.update();
-    p.draw();
-    if (p.life <= 0) particles.splice(index, 1);
+  skullModel = gltf.scene;
+  
+  // Автоматическое центрирование и масштабирование
+  const box = new THREE.Box3().setFromObject(skullModel);
+  const center = box.getCenter(new THREE.Vector3());
+  skullModel.position.sub(center); // Центрируем по нулям
+  
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = 3.5 / maxDim; // Делаем череп адекватного размера
+  skullModel.scale.set(scale, scale, scale);
+  
+  // Настройка материалов и теней
+  skullModel.traverse((node) => {
+    if (node.isMesh) {
+      node.castShadow = true;
+      node.receiveShadow = true;
+      // Улучшаем видимость текстур
+      if (node.material) {
+        node.material.envMapIntensity = 1.5;
+      }
+    }
   });
 
-  requestAnimationFrame(animate);
+  scene.add(skullModel);
+
+}, function (xhr) {
+  // Прогресс загрузки (в процентах)
+  const percent = Math.round((xhr.loaded / xhr.total) * 100);
+  loadingDiv.innerHTML = `Загрузка 3D-модели... ${percent}%`;
+}, function (error) {
+  console.error("Ошибка загрузки:", error);
+  loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.<br>Проверь, что файлы scene.gltf, scene.bin и папка textures лежат в корне репозитория.";
+});
+
+// 4. 3D Частицы (Искры)
+const particleCount = 300;
+const particlesGeo = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+const velocities = [];
+
+for (let i = 0; i < particleCount; i++) {
+  positions[i * 3] = (Math.random() - 0.5) * 10;
+  positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+  positions[i * 3 + 2] = (Math.random() - 0.5) * 5;
+  velocities.push({
+    x: (Math.random() - 0.5) * 0.01,
+    y: Math.random() * 0.02 + 0.005,
+    z: (Math.random() - 0.5) * 0.01
+  });
 }
+particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+// Генерируем круглую текстуру для частиц прямо в коде
+const canvas = document.createElement('canvas');
+canvas.width = 16; canvas.height = 16;
+const ctx = canvas.getContext('2d');
+ctx.beginPath(); ctx.arc(8, 8, 8, 0, Math.PI * 2); ctx.fillStyle = 'white'; ctx.fill();
+const particleTexture = new THREE.CanvasTexture(canvas);
+
+const particlesMat = new THREE.PointsMaterial({
+  color: 0xff2200,
+  size: 0.15,
+  map: particleTexture,
+  transparent: true,
+  opacity: 0.8,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false
+});
+
+const particleSystem = new THREE.Points(particlesGeo, particlesMat);
+scene.add(particleSystem);
+
+// 5. Анимация
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const time = clock.getElapsedTime();
+
+  if (skullModel) {
+    // Левитация
+    skullModel.position.y = Math.sin(time * 1.5) * 0.3;
+    // Легкий поворот головы
+    skullModel.rotation.y = Math.sin(time * 0.5) * 0.2;
+    skullModel.rotation.x = Math.cos(time * 0.7) * 0.1;
+  }
+
+  // Движение частиц вверх
+  const posArray = particleSystem.geometry.attributes.position.array;
+  for (let i = 0; i < particleCount; i++) {
+    posArray[i * 3] += velocities[i].x;
+    posArray[i * 3 + 1] += velocities[i].y;
+    posArray[i * 3 + 2] += velocities[i].z;
+
+    if (posArray[i * 3 + 1] > 5) {
+      posArray[i * 3 + 1] = -5;
+      posArray[i * 3] = (Math.random() - 0.5) * 10;
+    }
+  }
+  particleSystem.geometry.attributes.position.needsUpdate = true;
+  
+  // Пульсация красного света в глазницах
+  redLight.intensity = 25 + Math.sin(time * 8) * 8;
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
 animate();
 </script>
 </body>
