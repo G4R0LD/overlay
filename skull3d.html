@@ -8,7 +8,7 @@
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
-<!-- Подключаем официальный socket.io-client v2.5.0 -->
+<!-- Подключаем socket.io-client v2.5.0 (совместим с DonationAlerts) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.js"></script>
 </head>
 <body>
@@ -31,7 +31,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ DONATION ALERTS
 // ==========================================
-const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
+const DA_TOKEN = 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
 
 let targetExcitement = 0; 
 let currentExcitement = 0; 
@@ -51,38 +51,53 @@ function triggerEyeFlash() {
 
 // --- ПРЯМОЕ ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
 if (typeof io === 'undefined') {
-  console.error('❌ Критическая ошибка: Библиотека Socket.IO не загрузилась. Проверь блокировщик рекламы.');
-} else if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ') {
-  // Подключаемся к актуальному серверу DA
+  console.error('❌ Библиотека Socket.IO не загрузилась. Проверь блокировщик рекламы.');
+} else if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
+  // Используем актуальный сервер и принудительно websocket
   const socket = io('wss://socket11.donationalerts.com:443', { 
     transports: ['websocket'],
     reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000
+    reconnectionAttempts: Infinity
   });
 
   socket.on('connect', () => {
     console.log('✅ Подключено к DonationAlerts!');
-    // Отправляем токен и тип виджета
+    // Пробуем тип 'alert_widget', так как он чаще используется для кастомных виджетов
     socket.emit('add-user', { 
       token: DA_TOKEN, 
-      type: 'minor' 
+      type: 'alert_widget' 
     });
   });
 
-  // Слушаем событие доната
+  // 🕵️ РАСШИРЕННЫЙ ПЕРЕХВАТЧИК (для Socket.IO v2)
+  const originalOnevent = socket.onevent;
+  socket.onevent = function (packet) {
+    const args = packet.data || [];
+    const eventName = args[0];
+    // Игнорируем технические события
+    if (eventName !== 'connect' && eventName !== 'disconnect' && eventName !== 'error' && eventName !== 'connect_error') {
+      console.log('📡 [ПЕРЕХВАТ] Получено событие от сервера:', eventName, args[1]);
+    }
+    originalOnevent.call(this, packet);
+  };
+
+  // Обработчик доната с попыткой распарсить строку
   socket.on('donation', (data) => {
-    console.log('💥 Пришел донат! Данные:', data);
+    console.log('💥 Событие donation! Сырые данные:', data);
+    let donation = data;
+    if (typeof data === 'string') {
+      try {
+        donation = JSON.parse(data);
+        console.log('📦 Данные распарсены:', donation);
+      } catch (e) {
+        console.warn('⚠️ Не удалось распарсить JSON:', e);
+      }
+    }
     triggerEyeFlash();
   });
 
-  // Обработка ошибок подключения
   socket.on('connect_error', (err) => {
     console.error('❌ Ошибка подключения:', err.message);
-  });
-
-  socket.on('disconnect', (reason) => {
-    console.warn('⚠️ Отключено от DonationAlerts. Причина:', reason);
   });
 
 } else {
