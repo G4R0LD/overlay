@@ -30,10 +30,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// ==========================================
-// НАСТРОЙКИ DONATION ALERTS
-// ==========================================
-// ВСТАВЬ СЮДА СВОЙ СЕКРЕТНЫЙ ТОКЕН ИЗ НАСТРОЕК ДОНАТА (ОСТАВЬ КАВЫЧКИ)
 const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; 
 
 let targetExcitement = 0; 
@@ -57,7 +53,6 @@ function triggerEyeFlash() {
   }
 }
 
-// Подключение к DonationAlerts
 if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ') {
   const socket = io('https://socket11.donationalerts.com', { transports: ['websocket'] });
 
