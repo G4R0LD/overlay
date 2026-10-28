@@ -8,12 +8,12 @@
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
-<!-- Подключаем Socket.IO и библиотеку для DonationAlerts -->
+<!-- Подключаем официальный клиент Socket.IO -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@allior/wmake-donationalerts@2.1.1/dist/root/index.iife.js"></script>
 </head>
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
+<!-- Твой звук -->
 <audio id="donationSound" src="sounds/skullfire.mp3" preload="auto"></audio>
 
 <script type="importmap">
@@ -45,29 +45,34 @@ function triggerEyeFlash() {
   donationTimer = 3.5; 
   if (sound) {
     sound.currentTime = 0;
-    sound.play().catch(e => console.log("Браузер заблокировал звук:", e));
+    sound.play().catch(e => console.log("Звук заблокирован браузером:", e));
   }
 }
 
 // --- ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
 if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
-  // Используем библиотеку DonationAlertsSocket
-  const socket = new DonationAlertsSocket(DA_TOKEN);
+  // Подключаемся к официальному серверу
+  const socket = io('https://socket11.donationalerts.com', { transports: ['websocket'] });
 
-  socket.onConnect(() => {
-    console.log('✅ Подключено к DonationAlerts');
+  socket.on('connect', () => {
+    console.log('✅ Подключено к DonationAlerts!');
+    // ВАЖНО: здесь alert_widget (через нижнее подчеркивание)
+    socket.emit('add-user', { 
+      token: DA_TOKEN, 
+      type: 'alert_widget' 
+    });
   });
 
-  socket.onDonation((donation) => {
-    console.log('💥 Пришел донат:', donation);
+  socket.on('donation', (data) => {
+    console.log('💥 Пришел донат:', data);
     triggerEyeFlash();
   });
 
-  socket.onError((err) => {
-    console.error('❌ Ошибка подключения к DA:', err);
+  socket.on('connect_error', (err) => {
+    console.error('❌ Ошибка подключения:', err.message);
   });
 } else {
-  console.warn('⚠️ Токен DonationAlerts не указан в коде!');
+  console.warn('⚠️ Токен не указан! Череп будет просто висеть.');
 }
 // ==========================================
 
