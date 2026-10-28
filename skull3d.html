@@ -8,7 +8,7 @@
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
-<!-- ВАЖНО: Используем СТАРУЮ версию Socket.IO (v2.0.1), так как DonationAlerts работает на ней -->
+<!-- Используем старую версию Socket.IO (v2.0.1), совместимую с DonationAlerts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
 </head>
 <body>
@@ -32,7 +32,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ DONATION ALERTS
 // ==========================================
-const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
+const DA_TOKEN = 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
 
 let targetExcitement = 0; 
 let currentExcitement = 0; 
@@ -51,8 +51,8 @@ function triggerEyeFlash() {
 }
 
 // --- ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
-if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ') {
-  // Подключаемся к серверу DA (без цифр)
+if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
+  // Подключаемся к серверу DA
   const socket = io('wss://socket.donationalerts.com/', { transports: ['websocket'] });
 
   socket.on('connect', () => {
@@ -63,10 +63,21 @@ if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ'
     });
   });
 
-  // 🕵️ ШПИОН: Ловит вообще все события от сервера
-  socket.onAny((eventName, ...args) => {
-    console.log('📡 [ШПИОН] Получено событие от сервера:', eventName, args);
-  });
+  // 🕵️ ШПИОН для Socket.IO v2.0.1: перехватываем все входящие пакеты
+  const originalOnevent = socket.onevent;
+  socket.onevent = function (packet) {
+    const args = packet.data || [];
+    const eventName = args[0];
+    const eventData = args[1];
+    
+    // Выводим в консоль любое событие, кроме служебных
+    if (eventName !== 'connect' && eventName !== 'disconnect' && eventName !== 'error') {
+      console.log('📡 [ШПИОН] Получено событие:', eventName, eventData);
+    }
+    
+    // Вызываем оригинальный обработчик, чтобы не сломать работу других событий
+    originalOnevent.call(this, packet);
+  };
 
   socket.on('donation', (data) => {
     console.log('💥 Пришел донат! Данные:', data);
