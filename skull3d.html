@@ -8,7 +8,7 @@
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
-<!-- Подключаем официальный клиент Socket.IO -->
+<!-- ВАЖНО: Используем СТАРУЮ версию Socket.IO (v2.0.1), так как DonationAlerts работает на ней -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
 </head>
 <body>
@@ -32,7 +32,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ DONATION ALERTS
 // ==========================================
-const DA_TOKEN = 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
+const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
 
 let targetExcitement = 0; 
 let currentExcitement = 0; 
@@ -41,30 +41,35 @@ let donationTimer = 0;
 const sound = document.getElementById('donationSound');
 
 function triggerEyeFlash() {
+  console.log("🎬 Запускаем анимацию и звук!");
   targetExcitement = 1;
   donationTimer = 3.5; 
   if (sound) {
     sound.currentTime = 0;
-    sound.play().catch(e => console.log("Звук заблокирован браузером:", e));
+    sound.play().catch(e => console.log("Браузер заблокировал звук:", e));
   }
 }
 
 // --- ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
-if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
-  // Подключаемся к официальному серверу
-  const socket = io('https://socket11.donationalerts.com', { transports: ['websocket'] });
+if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ') {
+  // Подключаемся к серверу DA (без цифр)
+  const socket = io('wss://socket.donationalerts.com/', { transports: ['websocket'] });
 
   socket.on('connect', () => {
     console.log('✅ Подключено к DonationAlerts!');
-    // ВАЖНО: здесь alert_widget (через нижнее подчеркивание)
     socket.emit('add-user', { 
       token: DA_TOKEN, 
-      type: 'minor' 
+      type: 'alert_widget' 
     });
   });
 
+  // 🕵️ ШПИОН: Ловит вообще все события от сервера
+  socket.onAny((eventName, ...args) => {
+    console.log('📡 [ШПИОН] Получено событие от сервера:', eventName, args);
+  });
+
   socket.on('donation', (data) => {
-    console.log('💥 Пришел донат:', data);
+    console.log('💥 Пришел донат! Данные:', data);
     triggerEyeFlash();
   });
 
@@ -72,7 +77,7 @@ if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
     console.error('❌ Ошибка подключения:', err.message);
   });
 } else {
-  console.warn('⚠️ Токен не указан! Череп будет просто висеть.');
+  console.warn('⚠️ Токен не указан или оставлен по умолчанию!');
 }
 // ==========================================
 
