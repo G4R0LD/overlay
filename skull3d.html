@@ -52,7 +52,7 @@ function triggerEyeFlash() {
 }
 
 // --- ПОДКЛЮЧЕНИЕ ЧЕРЕЗ БИБЛИОТЕКУ ---
-if (typeof DonationAlertsSocket !== 'undefined' && DA_TOKEN && DA_TOKEN !== 'https://www.donationalerts.com/widget/alerts?group_id=1&token=AfdrAp2zfTr2aDXE0Cdd') {
+if (typeof DonationAlertsSocket !== 'undefined' && DA_TOKEN && DA_TOKEN !== 'СЮДА_ВСТАВЬ_СЕКРЕТНЫЙ_ТОКЕН_ВИДЖЕТА') {
   const socket = new DonationAlertsSocket(DA_TOKEN);
 
   socket.onConnect(() => {
