@@ -52,11 +52,17 @@ function triggerEyeFlash() {
 
 // --- ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
 if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
-  // Подключаемся к серверу DA
-  const socket = io('socket.donationalerts.ru:3001', { transports: ['websocket'] });
+  // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АДРЕС СЕРВЕРА И ПАРАМЕТРЫ ПЕРЕПОДКЛЮЧЕНИЯ
+  const socket = io('wss://socket11.donationalerts.com:443', { 
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000
+  });
 
   socket.on('connect', () => {
     console.log('✅ Подключено к DonationAlerts!');
+    // ИСПОЛЬЗУЕМ ТИП 'minor' ДЛЯ КАСТОМНЫХ ВИДЖЕТОВ
     socket.emit('add-user', { 
       token: DA_TOKEN, 
       type: 'minor' 
