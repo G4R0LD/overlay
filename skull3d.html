@@ -53,7 +53,7 @@ function triggerEyeFlash() {
 // --- ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
 if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
   // Подключаемся к серверу DA
-  const socket = io('wss://socket.donationalerts.com/', { transports: ['websocket'] });
+  const socket = io('socket.donationalerts.ru:3001', { transports: ['websocket'] });
 
   socket.on('connect', () => {
     console.log('✅ Подключено к DonationAlerts!');
