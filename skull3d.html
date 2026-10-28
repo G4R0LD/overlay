@@ -52,7 +52,7 @@ function triggerEyeFlash() {
 // --- ПРЯМОЕ ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
 if (typeof io === 'undefined') {
   console.error('❌ Библиотека Socket.IO не загрузилась. Проверь блокировщик рекламы.');
-} else if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
+} else if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ') {
   // Используем актуальный сервер и принудительно websocket
   const socket = io('wss://socket11.donationalerts.com:443', { 
     transports: ['websocket'],
