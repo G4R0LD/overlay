@@ -8,13 +8,12 @@
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
-<!-- Подключаем библиотеку Socket.IO для связи с DonationAlerts -->
+<!-- Подключаем Socket.IO и библиотеку для DonationAlerts -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@allior/wmake-donationalerts@2.1.1/dist/root/index.iife.js"></script>
 </head>
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
-
-<!-- ПОДКЛЮЧЕНИЕ ЗВУКА. Путь указывает на папку sounds и файл skullfire.mp3 -->
 <audio id="donationSound" src="sounds/skullfire.mp3" preload="auto"></audio>
 
 <script type="importmap">
@@ -30,43 +29,41 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; 
+// ==========================================
+// НАСТРОЙКИ DONATION ALERTS
+// ==========================================
+const DA_TOKEN = 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
 
 let targetExcitement = 0; 
 let currentExcitement = 0; 
 let donationTimer = 0;
 
-// Находим наш аудиоэлемент
 const sound = document.getElementById('donationSound');
 
-// Функция, которая запускает анимацию и звук
 function triggerEyeFlash() {
   targetExcitement = 1;
   donationTimer = 3.5; 
-  
-  // Запускаем звук
   if (sound) {
-    sound.currentTime = 0; // Сбрасываем на начало (если звук уже играл недавно)
-    sound.play().catch(error => {
-      console.log("Браузер заблокировал звук (нужен клик по экрану до первого доната):", error);
-    });
+    sound.currentTime = 0;
+    sound.play().catch(e => console.log("Браузер заблокировал звук:", e));
   }
 }
 
-if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ') {
-  const socket = io('https://socket11.donationalerts.com', { transports: ['websocket'] });
+// --- ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
+if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
+  // Используем библиотеку DonationAlertsSocket
+  const socket = new DonationAlertsSocket(DA_TOKEN);
 
-  socket.on('connect', () => {
+  socket.onConnect(() => {
     console.log('✅ Подключено к DonationAlerts');
-    socket.emit('add-user', { token: DA_TOKEN, type: 'alert-widget' });
   });
 
-  socket.on('donation', (data) => {
-    console.log('💥 Пришел донат:', data);
+  socket.onDonation((donation) => {
+    console.log('💥 Пришел донат:', donation);
     triggerEyeFlash();
   });
 
-  socket.on('connect_error', (err) => {
+  socket.onError((err) => {
     console.error('❌ Ошибка подключения к DA:', err);
   });
 } else {
@@ -234,18 +231,15 @@ function animate() {
   elapsedTime += delta;
   const time = elapsedTime; 
 
-  // Логика таймера доната
   if (donationTimer > 0) {
     donationTimer -= delta;
     if (donationTimer <= 0) {
-      targetExcitement = 0; // Начинаем плавно затухать
+      targetExcitement = 0; 
     }
   }
 
-  // Плавный переход
   currentExcitement += (targetExcitement - currentExcitement) * 3.0 * delta;
 
-  // Базовая анимация покоя
   let targetY = Math.sin(time * 1.2) * 0.1;
   let targetRotY = Math.sin(time * 0.6) * 0.15;
   let targetRotX = Math.cos(time * 0.8) * 0.05;
@@ -256,18 +250,14 @@ function animate() {
   let lightIntensityR = 3.5 + Math.random() * 1.5;
   let sparkSpeedMult = 1.0;
 
-  // Анимация возбуждения (донат)
   if (currentExcitement > 0.01) {
-    // Наклон вверх
     targetRotX -= 0.35 * currentExcitement;
     
-    // Тряска (убавленная)
     const shakeX = Math.sin(time * 60) * 0.015 * currentExcitement;
     const shakeY = Math.cos(time * 70) * 0.015 * currentExcitement;
     targetY += shakeY;
     targetRotY += shakeX;
     
-    // Вспышка глаз (умеренная)
     const eyePulse = 1 + currentExcitement * 1.2; 
     flickerL *= eyePulse;
     flickerR *= eyePulse;
