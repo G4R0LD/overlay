@@ -8,8 +8,10 @@
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
-<!-- Подключаем socket.io-client v2.5.0 (совместим с DonationAlerts) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.js"></script>
+<!-- Подключаем Socket.IO (обязательно для работы библиотеки) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
+<!-- Подключаем саму библиотеку DonationAlerts -->
+<script src="https://cdn.jsdelivr.net/npm/@allior/wmake-donationalerts@2.1.1/dist/root/index.iife.js"></script>
 </head>
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
@@ -31,10 +33,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ DONATION ALERTS
 // ==========================================
-const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
+const DA_TOKEN = 'https://www.donationalerts.com/widget/alerts?group_id=1&token=AfdrAp2zfTr2aDXE0Cdd'; // <-- СЕКРЕТНЫЙ ТОКЕН ВИДЖЕТА
 
-let targetExcitement = 0; 
-let currentExcitement = 0; 
+let targetExcitement = 0;
+let currentExcitement = 0;
 let donationTimer = 0;
 
 const sound = document.getElementById('donationSound');
@@ -42,66 +44,31 @@ const sound = document.getElementById('donationSound');
 function triggerEyeFlash() {
   console.log("🎬 Запускаем анимацию и звук!");
   targetExcitement = 1;
-  donationTimer = 3.5; 
+  donationTimer = 3.5;
   if (sound) {
     sound.currentTime = 0;
     sound.play().catch(e => console.log("Браузер заблокировал звук:", e));
   }
 }
 
-// --- ПРЯМОЕ ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
-if (typeof io === 'undefined') {
-  console.error('❌ Библиотека Socket.IO не загрузилась. Проверь блокировщик рекламы.');
-} else if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ') {
-  // Используем актуальный сервер и принудительно websocket
-  const socket = io('wss://socket11.donationalerts.com:443', { 
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionAttempts: Infinity
+// --- ПОДКЛЮЧЕНИЕ ЧЕРЕЗ БИБЛИОТЕКУ ---
+if (typeof DonationAlertsSocket !== 'undefined' && DA_TOKEN && DA_TOKEN !== 'СЮДА_ВСТАВЬ_СЕКРЕТНЫЙ_ТОКЕН_ВИДЖЕТА') {
+  const socket = new DonationAlertsSocket(DA_TOKEN);
+
+  socket.onConnect(() => {
+    console.log('✅ Подключено к DonationAlerts (через библиотеку)!');
   });
 
-  socket.on('connect', () => {
-    console.log('✅ Подключено к DonationAlerts!');
-    // Пробуем тип 'alert_widget', так как он чаще используется для кастомных виджетов
-    socket.emit('add-user', { 
-      token: DA_TOKEN, 
-      type: 'alert_widget' 
-    });
-  });
-
-  // 🕵️ РАСШИРЕННЫЙ ПЕРЕХВАТЧИК (для Socket.IO v2)
-  const originalOnevent = socket.onevent;
-  socket.onevent = function (packet) {
-    const args = packet.data || [];
-    const eventName = args[0];
-    // Игнорируем технические события
-    if (eventName !== 'connect' && eventName !== 'disconnect' && eventName !== 'error' && eventName !== 'connect_error') {
-      console.log('📡 [ПЕРЕХВАТ] Получено событие от сервера:', eventName, args[1]);
-    }
-    originalOnevent.call(this, packet);
-  };
-
-  // Обработчик доната с попыткой распарсить строку
-  socket.on('donation', (data) => {
-    console.log('💥 Событие donation! Сырые данные:', data);
-    let donation = data;
-    if (typeof data === 'string') {
-      try {
-        donation = JSON.parse(data);
-        console.log('📦 Данные распарсены:', donation);
-      } catch (e) {
-        console.warn('⚠️ Не удалось распарсить JSON:', e);
-      }
-    }
+  socket.onDonation((donation) => {
+    console.log('💥 Пришел донат! Данные:', donation);
     triggerEyeFlash();
   });
 
-  socket.on('connect_error', (err) => {
-    console.error('❌ Ошибка подключения:', err.message);
+  socket.onError((err) => {
+    console.error('❌ Ошибка подключения (библиотека):', err);
   });
-
 } else {
-  console.warn('⚠️ Токен не указан или оставлен по умолчанию!');
+  console.warn('⚠️ Библиотека DonationAlerts не загрузилась или токен не указан!');
 }
 // ==========================================
 
@@ -109,33 +76,33 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x000000, 0); 
+renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0; 
+renderer.toneMappingExposure = 1.0;
 document.body.appendChild(renderer.domElement);
 
 // --- ОСВЕЩЕНИЕ ---
-scene.add(new THREE.AmbientLight(0x223344, 2.5)); 
+scene.add(new THREE.AmbientLight(0x223344, 2.5));
 const moonLight = new THREE.DirectionalLight(0x88bbff, 3.5);
-moonLight.position.set(3, 5, 3); 
+moonLight.position.set(3, 5, 3);
 scene.add(moonLight);
 const candleLight = new THREE.DirectionalLight(0xff8800, 2.5);
-candleLight.position.set(-4, -2, -3); 
+candleLight.position.set(-4, -2, -3);
 scene.add(candleLight);
 
-camera.position.z = 6.5; 
+camera.position.z = 6.5;
 
 // --- ГРУППА ЧЕРЕПА ---
 const skullGroup = new THREE.Group();
 scene.add(skullGroup);
 
 // --- СВЕТ ИЗ ГЛАЗ (ЗЕЛЕНЫЙ) ---
-const leftEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0); 
-leftEyeLight.position.set(-0.55, 0.2, 1.0); 
+const leftEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0);
+leftEyeLight.position.set(-0.55, 0.2, 1.0);
 skullGroup.add(leftEyeLight);
 
 const rightEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0);
-rightEyeLight.position.set(0.55, 0.2, 1.0); 
+rightEyeLight.position.set(0.55, 0.2, 1.0);
 skullGroup.add(rightEyeLight);
 
 // --- ТЕКСТУРА ЗЕЛЕНОГО ОГНЯ ---
@@ -144,11 +111,11 @@ function createFireTexture() {
   canvas.width = 128; canvas.height = 128;
   const ctx = canvas.getContext('2d');
   const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');    
-  gradient.addColorStop(0.2, 'rgba(150, 255, 150, 1)');  
-  gradient.addColorStop(0.4, 'rgba(0, 255, 50, 0.8)');   
-  gradient.addColorStop(0.7, 'rgba(0, 100, 0, 0.4)');    
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');          
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.2, 'rgba(150, 255, 150, 1)');
+  gradient.addColorStop(0.4, 'rgba(0, 255, 50, 0.8)');
+  gradient.addColorStop(0.7, 'rgba(0, 100, 0, 0.4)');
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(canvas);
@@ -156,14 +123,14 @@ function createFireTexture() {
 
 const fireMaterial = new THREE.SpriteMaterial({
   map: createFireTexture(),
-  blending: THREE.AdditiveBlending, 
+  blending: THREE.AdditiveBlending,
   depthWrite: false,
   transparent: true
 });
 
 const leftFire = new THREE.Sprite(fireMaterial.clone());
 leftFire.position.set(-0.55, 0.2, 1.1);
-leftFire.scale.set(0.7, 0.9, 1); 
+leftFire.scale.set(0.7, 0.9, 1);
 skullGroup.add(leftFire);
 
 const rightFire = new THREE.Sprite(fireMaterial.clone());
@@ -200,25 +167,25 @@ loadingDiv.style.display = 'block';
 loader.load('skull_model/scene.gltf', function (gltf) {
   loadingDiv.style.display = 'none';
   const model = gltf.scene;
-  
+
   const box = new THREE.Box3().setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
-  model.position.sub(center); 
-  
+  model.position.sub(center);
+
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = 3.5 / maxDim; 
+  const scale = 3.5 / maxDim;
   model.scale.set(scale, scale, scale);
-  
+
   model.traverse((node) => {
     if (node.isMesh && node.material) {
-      node.material.roughness = 0.9; 
+      node.material.roughness = 0.9;
       node.material.metalness = 0.0;
-      node.material.color.multiplyScalar(0.95); 
+      node.material.color.multiplyScalar(0.95);
     }
   });
 
-  skullGroup.add(model); 
+  skullGroup.add(model);
 }, function (xhr) {
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
   loadingDiv.innerHTML = `Загрузка 3D-модели... ${percent}%`;
@@ -243,7 +210,7 @@ const sparkCanvas = document.createElement('canvas');
 sparkCanvas.width = 32; sparkCanvas.height = 32;
 const sCtx = sparkCanvas.getContext('2d');
 const sGrad = sCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
-sGrad.addColorStop(0, 'rgba(200, 255, 200, 1)'); 
+sGrad.addColorStop(0, 'rgba(200, 255, 200, 1)');
 sGrad.addColorStop(1, 'rgba(0, 255, 0, 0)');
 sCtx.fillStyle = sGrad; sCtx.fillRect(0, 0, 32, 32);
 
@@ -260,15 +227,15 @@ let elapsedTime = 0;
 
 function animate() {
   requestAnimationFrame(animate);
-  
-  const delta = clock.getDelta(); 
+
+  const delta = clock.getDelta();
   elapsedTime += delta;
-  const time = elapsedTime; 
+  const time = elapsedTime;
 
   if (donationTimer > 0) {
     donationTimer -= delta;
     if (donationTimer <= 0) {
-      targetExcitement = 0; 
+      targetExcitement = 0;
     }
   }
 
@@ -277,7 +244,7 @@ function animate() {
   let targetY = Math.sin(time * 1.2) * 0.1;
   let targetRotY = Math.sin(time * 0.6) * 0.15;
   let targetRotX = Math.cos(time * 0.8) * 0.05;
-  
+
   let flickerL = 0.7 + Math.sin(time * 15) * 0.1 + Math.random() * 0.1;
   let flickerR = 0.7 + Math.cos(time * 12) * 0.1 + Math.random() * 0.1;
   let lightIntensityL = 3.5 + Math.random() * 1.5;
@@ -286,16 +253,16 @@ function animate() {
 
   if (currentExcitement > 0.01) {
     targetRotX -= 0.35 * currentExcitement;
-    
+
     const shakeX = Math.sin(time * 60) * 0.015 * currentExcitement;
     const shakeY = Math.cos(time * 70) * 0.015 * currentExcitement;
     targetY += shakeY;
     targetRotY += shakeX;
-    
-    const eyePulse = 1 + currentExcitement * 1.2; 
+
+    const eyePulse = 1 + currentExcitement * 1.2;
     flickerL *= eyePulse;
     flickerR *= eyePulse;
-    lightIntensityL *= (1 + currentExcitement * 1.5); 
+    lightIntensityL *= (1 + currentExcitement * 1.5);
     lightIntensityR *= (1 + currentExcitement * 1.5);
     sparkSpeedMult = 1 + currentExcitement * 2;
   }
@@ -314,9 +281,9 @@ function animate() {
   const ePos = eyeSparkSystem.geometry.attributes.position.array;
   for(let i = 0; i < eyeSparkCount; i++) {
     let data = eyeSparkData[i];
-    ePos[i*3+1] += data.speed * sparkSpeedMult; 
-    ePos[i*3] += Math.sin(time * 10 + i) * 0.005 * sparkSpeedMult; 
-    
+    ePos[i*3+1] += data.speed * sparkSpeedMult;
+    ePos[i*3] += Math.sin(time * 10 + i) * 0.005 * sparkSpeedMult;
+
     if(ePos[i*3+1] > 0.8) {
       ePos[i*3+1] = 0.2;
       ePos[i*3] = (data.isLeft ? -0.55 : 0.55) + (Math.random() - 0.5) * 0.1;
