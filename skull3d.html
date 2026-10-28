@@ -8,9 +8,9 @@
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
 </style>
-<!-- Подключаем Socket.IO v2.0.1 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
-<!-- Подключаем библиотеку для DonationAlerts -->
+<!-- Используем Socket.IO версии 2.5.0, как рекомендует документация библиотеки -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.js"></script>
+<!-- Подключаем библиотеку DonationAlerts -->
 <script src="https://cdn.jsdelivr.net/npm/@allior/wmake-donationalerts@2.1.1/dist/root/index.iife.js"></script>
 </head>
 <body>
@@ -33,7 +33,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ DONATION ALERTS
 // ==========================================
-const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
+const DA_TOKEN = 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ'; // <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
 
 let targetExcitement = 0; 
 let currentExcitement = 0; 
@@ -51,28 +51,31 @@ function triggerEyeFlash() {
   }
 }
 
-// --- ПОДКЛЮЧЕНИЕ К DONATION ALERTS ЧЕРЕЗ БИБЛИОТЕКУ ---
-if (DA_TOKEN && DA_TOKEN !== 'ТВОЙ_СЕКРЕТНЫЙ_ТОКЕН_ЗДЕСЬ') {
-  // Создаём экземпляр сокета из библиотеки
-  const socket = new DonationAlertsSocket(DA_TOKEN);
+// --- ПОДКЛЮЧЕНИЕ К DONATION ALERTS ---
+if (DA_TOKEN && DA_TOKEN !== 'AfdrAp2zfTr2aDXE0Cdd') {
+  // Проверяем, загрузилась ли библиотека
+  if (typeof DonationAlertsSocket !== 'undefined') {
+    const socket = new DonationAlertsSocket(DA_TOKEN);
 
-  socket.onConnect(() => {
-    console.log('✅ Подключено к DonationAlerts (через библиотеку)!');
-  });
+    socket.onConnect(() => {
+      console.log('✅ Подключено к DonationAlerts (через библиотеку)!');
+    });
 
-  // Подписываемся на событие доната
-  socket.onDonation((donation) => {
-    console.log('💥 Пришел донат! Данные от библиотеки:', donation);
-    triggerEyeFlash();
-  });
+    socket.onDonation((donation) => {
+      console.log('💥 Пришел донат! Данные от библиотеки:', donation);
+      triggerEyeFlash();
+    });
 
-  socket.onError((err) => {
-    console.error('❌ Ошибка подключения (библиотека):', err);
-  });
+    socket.onError((err) => {
+      console.error('❌ Ошибка подключения (библиотека):', err);
+    });
 
-  socket.onDisconnect(() => {
-    console.warn('⚠️ Отключено от DonationAlerts');
-  });
+    socket.onDisconnect(() => {
+      console.warn('⚠️ Отключено от DonationAlerts');
+    });
+  } else {
+    console.error('❌ Библиотека DonationAlertsSocket не загрузилась. Проверь соединение или блокировщик рекламы.');
+  }
 } else {
   console.warn('⚠️ Токен не указан или оставлен по умолчанию!');
 }
