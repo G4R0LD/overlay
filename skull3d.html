@@ -13,7 +13,7 @@
     z-index: 9999; pointer-events: none; max-width: 450px; white-space: pre-wrap; word-break: break-all;
   }
 </style>
-<!-- Нативный Socket.IO 2.0.1 (без сторонних библиотек) -->
+<!-- Нативный Socket.IO 2.0.1, совместимый с DonationAlerts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
 </head>
 <body>
@@ -37,7 +37,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ
 // ==========================================
-const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ВАШ ТОКЕН
+const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ТОКЕН ИЗ URL ВИДЖЕТА
 
 const debugPanel = document.getElementById('debug-panel');
 let logMessages = [];
@@ -63,11 +63,11 @@ function triggerEyeFlash() {
   }
 }
 
-// --- ПОДКЛЮЧЕНИЕ ---
-updateDebug('Статус: Попытка подключения к socket.donationalerts.ru:443...');
+// --- ПОДКЛЮЧЕНИЕ К АКТУАЛЬНОМУ СЕРВЕРУ ---
+updateDebug('Статус: Подключение к socket11.donationalerts.com...');
 
 try {
-  const socket = io('wss://socket.donationalerts.ru:443', { 
+  const socket = io('wss://socket11.donationalerts.com:443', { 
     transports: ['websocket'],
     reconnection: true
   });
@@ -81,6 +81,7 @@ try {
     updateDebug('❌ Ошибка: ' + err.message, 'red');
   });
 
+  // Слушаем событие доната (на случай, если приходит как объект)
   socket.on('donation', (data) => {
     let donate = data;
     if (typeof data === 'string') {
@@ -89,6 +90,17 @@ try {
     updateDebug('💥 ДОНАТ! ' + (donate.amount || '?') + ' ' + (donate.currency || ''), '#ffcc00');
     triggerEyeFlash();
   });
+
+  // Слушаем событие alert (на случай, если DA присылает его вместо donation)
+  socket.on('alert', (data) => {
+    let alert = data;
+    if (typeof data === 'string') {
+      try { alert = JSON.parse(data); } catch(e) {}
+    }
+    updateDebug('💥 АЛЕРТ! ' + (alert.amount || '?') + ' ' + (alert.currency || ''), '#ffcc00');
+    triggerEyeFlash();
+  });
+
 } catch (e) {
   updateDebug('Критическая ошибка: ' + e.message, 'red');
 }
