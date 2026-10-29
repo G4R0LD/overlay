@@ -13,8 +13,10 @@
     z-index: 9999; pointer-events: none; max-width: 450px; white-space: pre-wrap; word-break: break-all;
   }
 </style>
-<!-- ИСПОЛЬЗУЕМ ПРАВИЛЬНУЮ ВЕРСИЮ SOCKET.IO (2.5.0) -->
+<!-- 1. Socket.IO версии 2.5.0 (совместима с библиотекой) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.js"></script>
+<!-- 2. Сама библиотека DonationAlerts -->
+<script src="https://cdn.jsdelivr.net/npm/@allior/wmake-donationalerts@2.1.1/dist/root/index.iife.js"></script>
 </head>
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
@@ -37,7 +39,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ
 // ==========================================
-const DA_TOKEN = 'https://www.donationalerts.com/widget/alerts?group_id=1&token=AfdrAp2zfTr2aDXE0Cdd'; // <-- ВАШ ТОКЕН
+const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ТОКЕН ИЗ URL ВИДЖЕТА
 
 const debugPanel = document.getElementById('debug-panel');
 let logMessages = [];
@@ -63,46 +65,30 @@ function triggerEyeFlash() {
   }
 }
 
-// --- ПОДКЛЮЧЕНИЕ ---
-updateDebug('Статус: Попытка подключения к socket11.donationalerts.com...');
+// --- ПОДКЛЮЧЕНИЕ ЧЕРЕЗ БИБЛИОТЕКУ ---
+updateDebug('Статус: Попытка подключения через библиотеку...');
 
 try {
-  // ПРАВИЛЬНЫЙ СЕРВЕР И ВЕРСИЯ
-  const socket = io('wss://socket11.donationalerts.com:443', { 
-    transports: ['websocket'],
-    reconnection: true,
-    forceNew: true
-  });
+  // Проверяем, загрузилась ли библиотека
+  if (typeof DonationAlertsSocket === 'undefined') {
+    updateDebug('❌ Библиотека DonationAlertsSocket не загрузилась!', 'red');
+  } else {
+    const socket = new DonationAlertsSocket(DA_TOKEN);
 
-  socket.on('connect', () => {
-    updateDebug('✅ Сокет подключен. Отправка токена (type: minor)...');
-    socket.emit('add-user', { 
-      token: DA_TOKEN, 
-      type: 'minor' 
+    socket.onConnect(() => {
+      updateDebug('✅ Подключено к DonationAlerts (библиотека)!');
     });
-  });
 
-  socket.on('connect_error', (err) => {
-    updateDebug('❌ Ошибка подключения: ' + err.message, 'red');
-  });
+    // Слушаем донат. Библиотека сама нормализует данные.
+    socket.onDonation((donation) => {
+      updateDebug('💥 ДОНАТ ПОЛУЧЕН! Сумма: ' + donation.amountMain, '#ffcc00');
+      triggerEyeFlash();
+    });
 
-  // ШПИОН для отладки
-  const originalOnevent = socket.onevent;
-  socket.onevent = function (packet) {
-    const args = packet.data || [];
-    const eventName = args[0];
-    if (eventName !== 'connect' && eventName !== 'disconnect' && eventName !== 'error' && eventName !== 'connect_error') {
-      updateDebug('📡 Событие от сервера: ' + eventName, '#00ffff');
-    }
-    originalOnevent.call(this, packet);
-  };
-
-  // Слушаем донат
-  socket.on('donation', (data) => {
-    updateDebug('💥 ДОНАТ ПОЛУЧЕН!', '#ffcc00');
-    triggerEyeFlash();
-  });
-
+    socket.onError((err) => {
+      updateDebug('❌ Ошибка библиотеки: ' + err.message, 'red');
+    });
+  }
 } catch (e) {
   updateDebug('Критическая ошибка: ' + e.message, 'red');
 }
