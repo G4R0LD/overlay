@@ -7,18 +7,35 @@
   html, body { margin:0; padding:0; background:transparent; overflow:hidden; width:100%; height:100%; }
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
-  #debug-panel {
-    position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.8); color: #00ff00;
-    padding: 10px; font-family: monospace; font-size: 14px; border-radius: 5px;
-    z-index: 9999; pointer-events: none; max-width: 450px; white-space: pre-wrap; word-break: break-all;
+  
+  /* Кнопка для ручного запуска */
+  #testBtn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    padding: 10px 20px;
+    background: #00ff33;
+    color: black;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 100;
+    font-family: sans-serif;
+    box-shadow: 0 0 10px #00ff33;
+    transition: transform 0.1s;
   }
+  #testBtn:active { transform: scale(0.95); }
 </style>
-<!-- Нативный Socket.IO 2.0.1, совместимый с DonationAlerts -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
 </head>
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
-<div id="debug-panel">Статус: Инициализация...</div>
+
+<!-- Кнопка запуска. В OBS нажимается через "Взаимодействовать" -->
+<button id="testBtn">💥 Тряхнуть черепом</button>
+
+<!-- Твой звук -->
 <audio id="donationSound" src="sounds/skullfire.mp3" preload="auto"></audio>
 
 <script type="importmap">
@@ -35,78 +52,28 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ==========================================
-// НАСТРОЙКИ
+// НАСТРОЙКИ АНИМАЦИИ
 // ==========================================
-const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ТОКЕН ИЗ URL ВИДЖЕТА
-
-const debugPanel = document.getElementById('debug-panel');
-let logMessages = [];
-function updateDebug(text, color = '#00ff00') {
-  logMessages.push(text);
-  if (logMessages.length > 15) logMessages.shift();
-  debugPanel.innerText = logMessages.join('\n');
-  debugPanel.style.color = color;
-  console.log(text);
-}
-
 let targetExcitement = 0; 
 let currentExcitement = 0; 
 let donationTimer = 0;
 const sound = document.getElementById('donationSound');
 
+// Функция запуска анимации и звука
 function triggerEyeFlash() {
   targetExcitement = 1;
-  donationTimer = 3.5; 
+  donationTimer = 3.5; // Длительность тряски (в секундах)
+  
   if (sound) {
-    sound.currentTime = 0;
-    sound.play().catch(e => updateDebug('Ошибка звука: ' + e.message, 'red'));
+    sound.currentTime = 0; // Сброс звука в начало
+    sound.play().catch(e => console.log("Ошибка звука:", e));
   }
 }
 
-// --- ПОДКЛЮЧЕНИЕ К АКТУАЛЬНОМУ СЕРВЕРУ ---
-updateDebug('Статус: Подключение к socket11.donationalerts.com...');
-
-try {
-  const socket = io('wss://socket11.donationalerts.com:443', { 
-    transports: ['websocket'],
-    reconnection: true
-  });
-
-  socket.on('connect', () => {
-    updateDebug('✅ Подключено. Отправка токена (minor)...');
-    socket.emit('add-user', { token: DA_TOKEN, type: 'minor' });
-  });
-
-  socket.on('connect_error', (err) => {
-    updateDebug('❌ Ошибка: ' + err.message, 'red');
-  });
-
-  // Слушаем событие доната (на случай, если приходит как объект)
-  socket.on('donation', (data) => {
-    let donate = data;
-    if (typeof data === 'string') {
-      try { donate = JSON.parse(data); } catch(e) {}
-    }
-    updateDebug('💥 ДОНАТ! ' + (donate.amount || '?') + ' ' + (donate.currency || ''), '#ffcc00');
-    triggerEyeFlash();
-  });
-
-  // Слушаем событие alert (на случай, если DA присылает его вместо donation)
-  socket.on('alert', (data) => {
-    let alert = data;
-    if (typeof data === 'string') {
-      try { alert = JSON.parse(data); } catch(e) {}
-    }
-    updateDebug('💥 АЛЕРТ! ' + (alert.amount || '?') + ' ' + (alert.currency || ''), '#ffcc00');
-    triggerEyeFlash();
-  });
-
-} catch (e) {
-  updateDebug('Критическая ошибка: ' + e.message, 'red');
-}
+// Привязываем кнопку к запуску
+document.getElementById('testBtn').addEventListener('click', triggerEyeFlash);
 // ==========================================
 
-// --- ДАЛЬШЕ ИДЕТ ТВОЙ 3D КОД (БЕЗ ИЗМЕНЕНИЙ) ---
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: false });
@@ -116,6 +83,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
+// --- ОСВЕЩЕНИЕ ---
 scene.add(new THREE.AmbientLight(0x223344, 2.5)); 
 const moonLight = new THREE.DirectionalLight(0x88bbff, 3.5);
 moonLight.position.set(3, 5, 3); 
@@ -126,9 +94,11 @@ scene.add(candleLight);
 
 camera.position.z = 6.5; 
 
+// --- ГРУППА ЧЕРЕПА ---
 const skullGroup = new THREE.Group();
 scene.add(skullGroup);
 
+// --- СВЕТ ИЗ ГЛАЗ (ЗЕЛЕНЫЙ) ---
 const leftEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0); 
 leftEyeLight.position.set(-0.55, 0.2, 1.0); 
 skullGroup.add(leftEyeLight);
@@ -137,6 +107,7 @@ const rightEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0);
 rightEyeLight.position.set(0.55, 0.2, 1.0); 
 skullGroup.add(rightEyeLight);
 
+// --- ТЕКСТУРА ЗЕЛЕНОГО ОГНЯ ---
 function createFireTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128; canvas.height = 128;
@@ -169,6 +140,7 @@ rightFire.position.set(0.55, 0.2, 1.1);
 rightFire.scale.set(0.7, 0.9, 1);
 skullGroup.add(rightFire);
 
+// --- ИСКРЫ ИЗ ГЛАЗ (ЗЕЛЕНЫЕ) ---
 const eyeSparksGeo = new THREE.BufferGeometry();
 const eyeSparkCount = 30;
 const eyeSparkPos = new Float32Array(eyeSparkCount * 3);
@@ -189,6 +161,7 @@ const sparkMat = new THREE.PointsMaterial({
 const eyeSparkSystem = new THREE.Points(eyeSparksGeo, sparkMat);
 skullGroup.add(eyeSparkSystem);
 
+// --- ЗАГРУЗКА МОДЕЛИ ---
 const loader = new GLTFLoader();
 const loadingDiv = document.getElementById('loading');
 loadingDiv.style.display = 'block';
@@ -222,6 +195,7 @@ loader.load('skull_model/scene.gltf', function (gltf) {
   loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
 });
 
+// --- ФОНОВЫЕ ЧАСТИЦЫ (ЗЕЛЕНЫЕ) ---
 const particleCount = 150;
 const particlesGeo = new THREE.BufferGeometry();
 const positions = new Float32Array(particleCount * 3);
@@ -249,6 +223,7 @@ const particlesMat = new THREE.PointsMaterial({
 const particleSystem = new THREE.Points(particlesGeo, particlesMat);
 scene.add(particleSystem);
 
+// --- АНИМАЦИЯ ---
 const clock = new THREE.Clock();
 let elapsedTime = 0;
 
