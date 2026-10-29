@@ -2,40 +2,15 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>💀 3D Skull Overlay</title>
+<title>💀 3D Skull Overlay (Twitch Reward)</title>
 <style>
   html, body { margin:0; padding:0; background:transparent; overflow:hidden; width:100%; height:100%; }
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
-  
-  /* Кнопка для ручного запуска */
-  #testBtn {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    padding: 10px 20px;
-    background: #00ff33;
-    color: black;
-    border: none;
-    border-radius: 5px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    z-index: 100;
-    font-family: sans-serif;
-    box-shadow: 0 0 10px #00ff33;
-    transition: transform 0.1s;
-  }
-  #testBtn:active { transform: scale(0.95); }
 </style>
 </head>
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
-
-<!-- Кнопка запуска. В OBS нажимается через "Взаимодействовать" -->
-<button id="testBtn">💥 Тряхнуть черепом</button>
-
-<!-- Твой звук -->
 <audio id="donationSound" src="sounds/skullfire.mp3" preload="auto"></audio>
 
 <script type="importmap">
@@ -52,28 +27,149 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ==========================================
-// НАСТРОЙКИ АНИМАЦИИ
+// НАСТРОЙКИ TWITCH
+// ==========================================
+const TWITCH_CLIENT_ID = 'ТВОЙ_CLIENT_ID'; // <-- ВСТАВЬ СЮДА CLIENT ID ПРИЛОЖЕНИЯ
+const TWITCH_ACCESS_TOKEN = 'ТВОЙ_ACCESS_TOKEN'; // <-- ВСТАВЬ СЮДА ТОКЕН, ПОЛУЧЕННЫЙ ПО ИНСТРУКЦИИ ВЫШЕ
+const TWITCH_BROADCASTER_ID = 'ТВОЙ_ID_КАНАЛА'; // <-- ID твоего канала (можно узнать здесь: https://www.streamweasels.com/tools/convert-twitch-username-to-user-id/)
+const TWITCH_REWARD_ID = 'ID_ТВОЕЙ_НАГРАДЫ'; // <-- ID награды, которую мы создали
+
+// ==========================================
+// ЛОГИКА АНИМАЦИИ
 // ==========================================
 let targetExcitement = 0; 
 let currentExcitement = 0; 
 let donationTimer = 0;
 const sound = document.getElementById('donationSound');
 
-// Функция запуска анимации и звука
 function triggerEyeFlash() {
   targetExcitement = 1;
-  donationTimer = 3.5; // Длительность тряски (в секундах)
-  
+  donationTimer = 3.5; 
   if (sound) {
-    sound.currentTime = 0; // Сброс звука в начало
+    sound.currentTime = 0;
     sound.play().catch(e => console.log("Ошибка звука:", e));
   }
 }
 
-// Привязываем кнопку к запуску
-document.getElementById('testBtn').addEventListener('click', triggerEyeFlash);
+// ==========================================
+// ПОДКЛЮЧЕНИЕ К TWITCH EVENTS
+// ==========================================
+let ws;
+let sessionId = null;
+
+function connectToTwitch() {
+  // 1. Получаем ID сессии для EventSub
+  fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+    method: 'POST',
+    headers: {
+      'Client-ID': TWITCH_CLIENT_ID,
+      'Authorization': `Bearer ${TWITCH_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      type: 'channel.channel_points_custom_reward_redemption.add',
+      version: '1',
+      condition: {
+        broadcaster_user_id: TWITCH_BROADCASTER_ID,
+        reward_id: TWITCH_REWARD_ID
+      },
+      transport: {
+        method: 'websocket',
+        session_id: sessionId // Будет заменено ниже
+      }
+    })
+  })
+  .then(response => {
+    if (!response.ok) throw new Error('Ошибка при создании подписки');
+    return response.json();
+  })
+  .then(data => {
+    console.log('Подписка на награду успешно создана!', data);
+  })
+  .catch(error => {
+    console.error('Ошибка подключения к Twitch:', error);
+  });
+}
+
+// 2. Подключаемся к WebSocket EventSub
+function startEventSub() {
+  ws = new WebSocket('wss://eventsub.wss.twitch.tv/ws');
+
+  ws.onopen = () => {
+    console.log('WebSocket соединение с Twitch установлено.');
+  };
+
+  ws.onmessage = (event) => {
+    const message = JSON.parse(event.data);
+    console.log('Получено сообщение от Twitch:', message);
+
+    // Получаем session_id при первом подключении
+    if (message.metadata.message_type === 'session_welcome') {
+      sessionId = message.payload.session.id;
+      console.log('Session ID получен:', sessionId);
+      
+      // Теперь, когда у нас есть session_id, подписываемся на событие
+      subscribeToReward(sessionId);
+    }
+
+    // Обрабатываем событие искупления награды
+    if (message.metadata.message_type === 'notification') {
+      if (message.metadata.subscription_type === 'channel.channel_points_custom_reward_redemption.add') {
+        console.log('🎉 Награда искуплена!', message.payload.event);
+        triggerEyeFlash(); // Запускаем нашу анимацию
+      }
+    }
+  };
+
+  ws.onerror = (error) => {
+    console.error('Ошибка WebSocket:', error);
+  };
+
+  ws.onclose = () => {
+    console.log('WebSocket соединение закрыто. Переподключение через 5 секунд...');
+    setTimeout(startEventSub, 5000);
+  };
+}
+
+// 3. Функция для подписки на конкретную награду
+function subscribeToReward(sessionId) {
+  fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+    method: 'POST',
+    headers: {
+      'Client-ID': TWITCH_CLIENT_ID,
+      'Authorization': `Bearer ${TWITCH_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      type: 'channel.channel_points_custom_reward_redemption.add',
+      version: '1',
+      condition: {
+        broadcaster_user_id: TWITCH_BROADCASTER_ID,
+        reward_id: TWITCH_REWARD_ID
+      },
+      transport: {
+        method: 'websocket',
+        session_id: sessionId
+      }
+    })
+  })
+  .then(response => {
+    if (!response.ok) throw new Error('Ошибка при создании подписки');
+    return response.json();
+  })
+  .then(data => {
+    console.log('Подписка на награду успешно создана!', data);
+  })
+  .catch(error => {
+    console.error('Ошибка подписки на награду:', error);
+  });
+}
+
+// Запускаем подключение
+startEventSub();
 // ==========================================
 
+// --- ДАЛЬШЕ ИДЕТ ТВОЙ 3D КОД (БЕЗ ИЗМЕНЕНИЙ) ---
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: false });
@@ -83,7 +179,6 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
-// --- ОСВЕЩЕНИЕ ---
 scene.add(new THREE.AmbientLight(0x223344, 2.5)); 
 const moonLight = new THREE.DirectionalLight(0x88bbff, 3.5);
 moonLight.position.set(3, 5, 3); 
@@ -94,11 +189,9 @@ scene.add(candleLight);
 
 camera.position.z = 6.5; 
 
-// --- ГРУППА ЧЕРЕПА ---
 const skullGroup = new THREE.Group();
 scene.add(skullGroup);
 
-// --- СВЕТ ИЗ ГЛАЗ (ЗЕЛЕНЫЙ) ---
 const leftEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0); 
 leftEyeLight.position.set(-0.55, 0.2, 1.0); 
 skullGroup.add(leftEyeLight);
@@ -107,7 +200,6 @@ const rightEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0);
 rightEyeLight.position.set(0.55, 0.2, 1.0); 
 skullGroup.add(rightEyeLight);
 
-// --- ТЕКСТУРА ЗЕЛЕНОГО ОГНЯ ---
 function createFireTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128; canvas.height = 128;
@@ -140,7 +232,6 @@ rightFire.position.set(0.55, 0.2, 1.1);
 rightFire.scale.set(0.7, 0.9, 1);
 skullGroup.add(rightFire);
 
-// --- ИСКРЫ ИЗ ГЛАЗ (ЗЕЛЕНЫЕ) ---
 const eyeSparksGeo = new THREE.BufferGeometry();
 const eyeSparkCount = 30;
 const eyeSparkPos = new Float32Array(eyeSparkCount * 3);
@@ -161,7 +252,6 @@ const sparkMat = new THREE.PointsMaterial({
 const eyeSparkSystem = new THREE.Points(eyeSparksGeo, sparkMat);
 skullGroup.add(eyeSparkSystem);
 
-// --- ЗАГРУЗКА МОДЕЛИ ---
 const loader = new GLTFLoader();
 const loadingDiv = document.getElementById('loading');
 loadingDiv.style.display = 'block';
@@ -195,7 +285,6 @@ loader.load('skull_model/scene.gltf', function (gltf) {
   loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
 });
 
-// --- ФОНОВЫЕ ЧАСТИЦЫ (ЗЕЛЕНЫЕ) ---
 const particleCount = 150;
 const particlesGeo = new THREE.BufferGeometry();
 const positions = new Float32Array(particleCount * 3);
@@ -223,7 +312,6 @@ const particlesMat = new THREE.PointsMaterial({
 const particleSystem = new THREE.Points(particlesGeo, particlesMat);
 scene.add(particleSystem);
 
-// --- АНИМАЦИЯ ---
 const clock = new THREE.Clock();
 let elapsedTime = 0;
 
