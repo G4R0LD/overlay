@@ -8,7 +8,6 @@
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
   
-  /* Блок для отладки, чтобы видеть статус прямо на экране */
   #debug-panel {
     position: absolute;
     top: 10px; left: 10px;
@@ -20,10 +19,11 @@
     border-radius: 5px;
     z-index: 9999;
     pointer-events: none;
+    max-width: 400px;
   }
 </style>
-<!-- Подключаем Socket.IO (версия 2.5.0, самая стабильная для DA) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.js"></script>
+<!-- Используем строго v2.0.1 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
 </head>
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
@@ -46,7 +46,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ
 // ==========================================
-const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ТВОЙ ТОКЕН (БЕЗ ССЫЛОК И КАВЫЧЕК ВНУТРИ)
+// ВСТАВЬ СЮДА ТОКЕН ИЗ НАСТРОЕК АККАУНТА (Секретный токен, а не из ссылки)
+const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; 
+
 const debugPanel = document.getElementById('debug-panel');
 
 function updateDebug(text, color = '#00ff00') {
@@ -80,7 +82,7 @@ try {
 
   socket.on('connect', () => {
     updateDebug('Статус: Сокет подключен. Отправка токена...');
-    // Отправляем токен. Пробуем тип 'alert_widget'
+    // Пробуем тип 'alert_widget'
     socket.emit('add-user', { 
       token: DA_TOKEN, 
       type: 'alert_widget' 
@@ -91,14 +93,15 @@ try {
     updateDebug('Ошибка подключения: ' + err.message, 'red');
   });
 
-  // Слушаем ЛЮБОЕ событие, чтобы понять, реагирует ли сервер
-  socket.onAny((event, ...args) => {
-    updateDebug(`Событие от сервера: ${event}`);
+  // Слушаем донат (стандартное событие)
+  socket.on('donation', (data) => {
+    updateDebug('💥 ДОНАТ ПОЛУЧЕН (donation)!', '#ffcc00');
+    triggerEyeFlash();
   });
 
-  // Ждем именно донат
-  socket.on('donation', (data) => {
-    updateDebug('💥 ДОНАТ ПОЛУЧЕН!', 'yellow');
+  // Слушаем alert (иногда DA присылает это событие вместо donation)
+  socket.on('alert', (data) => {
+    updateDebug('💥 АЛЕРТ ПОЛУЧЕН (alert)!', '#ffcc00');
     triggerEyeFlash();
   });
 
