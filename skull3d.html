@@ -7,25 +7,14 @@
   html, body { margin:0; padding:0; background:transparent; overflow:hidden; width:100%; height:100%; }
   canvas { display:block; pointer-events:none; }
   #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: sans-serif; font-size: 20px; text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; display: none; }
-  
   #debug-panel {
-    position: absolute;
-    top: 10px; left: 10px;
-    background: rgba(0, 0, 0, 0.8);
-    color: #00ff00;
-    padding: 10px;
-    font-family: monospace;
-    font-size: 14px;
-    border-radius: 5px;
-    z-index: 9999;
-    pointer-events: none;
-    max-width: 450px;
-    white-space: pre-wrap;
-    word-break: break-all;
+    position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.8); color: #00ff00;
+    padding: 10px; font-family: monospace; font-size: 14px; border-radius: 5px;
+    z-index: 9999; pointer-events: none; max-width: 450px; white-space: pre-wrap; word-break: break-all;
   }
 </style>
-<!-- Используем старую версию Socket.IO (v2.0.1), совместимую с DonationAlerts -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
+<!-- ИСПОЛЬЗУЕМ ПРАВИЛЬНУЮ ВЕРСИЮ SOCKET.IO (2.5.0) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.js"></script>
 </head>
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
@@ -48,15 +37,13 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ
 // ==========================================
-// ВСТАВЬ СЮДА ТОКЕН ИЗ URL ВИДЖЕТА (тот, что начинается с https://www.donationalerts.com/widget/alerts?...&token=)
-const DA_TOKEN = 'https://www.donationalerts.com/widget/alerts?group_id=1&token=AfdrAp2zfTr2aDXE0Cdd'; 
+const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; // <-- ВАШ ТОКЕН
 
 const debugPanel = document.getElementById('debug-panel');
 let logMessages = [];
-
 function updateDebug(text, color = '#00ff00') {
   logMessages.push(text);
-  if (logMessages.length > 15) logMessages.shift(); // Ограничиваем количество строк
+  if (logMessages.length > 15) logMessages.shift();
   debugPanel.innerText = logMessages.join('\n');
   debugPanel.style.color = color;
   console.log(text);
@@ -77,11 +64,11 @@ function triggerEyeFlash() {
 }
 
 // --- ПОДКЛЮЧЕНИЕ ---
-updateDebug('Статус: Попытка подключения к socket.donationalerts.ru:3001...');
+updateDebug('Статус: Попытка подключения к socket11.donationalerts.com...');
 
 try {
-  // Пробуем старый проверенный сервер и тип 'minor'
-  const socket = io('socket.donationalerts.ru:3001', { 
+  // ПРАВИЛЬНЫЙ СЕРВЕР И ВЕРСИЯ
+  const socket = io('wss://socket11.donationalerts.com:443', { 
     transports: ['websocket'],
     reconnection: true,
     forceNew: true
@@ -99,11 +86,7 @@ try {
     updateDebug('❌ Ошибка подключения: ' + err.message, 'red');
   });
 
-  socket.on('connect_timeout', () => {
-    updateDebug('⏰ Тайм-аут подключения', 'red');
-  });
-
-  // 🕵️ ШПИОН: Перехватываем вообще все входящие события
+  // ШПИОН для отладки
   const originalOnevent = socket.onevent;
   socket.onevent = function (packet) {
     const args = packet.data || [];
@@ -114,7 +97,7 @@ try {
     originalOnevent.call(this, packet);
   };
 
-  // Явно слушаем донат
+  // Слушаем донат
   socket.on('donation', (data) => {
     updateDebug('💥 ДОНАТ ПОЛУЧЕН!', '#ffcc00');
     triggerEyeFlash();
