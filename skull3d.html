@@ -11,7 +11,7 @@
   #debug-panel {
     position: absolute;
     top: 10px; left: 10px;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.8);
     color: #00ff00;
     padding: 10px;
     font-family: monospace;
@@ -19,10 +19,12 @@
     border-radius: 5px;
     z-index: 9999;
     pointer-events: none;
-    max-width: 400px;
+    max-width: 450px;
+    white-space: pre-wrap;
+    word-break: break-all;
   }
 </style>
-<!-- Используем строго v2.0.1 -->
+<!-- Используем старую версию Socket.IO (v2.0.1), совместимую с DonationAlerts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
 </head>
 <body>
@@ -46,13 +48,16 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ==========================================
 // НАСТРОЙКИ
 // ==========================================
-// ВСТАВЬ СЮДА ТОКЕН ИЗ НАСТРОЕК АККАУНТА (Секретный токен, а не из ссылки)
+// ВСТАВЬ СЮДА ТОКЕН ИЗ URL ВИДЖЕТА (тот, что начинается с https://www.donationalerts.com/widget/alerts?...&token=)
 const DA_TOKEN = 'AfdrAp2zfTr2aDXE0Cdd'; 
 
 const debugPanel = document.getElementById('debug-panel');
+let logMessages = [];
 
 function updateDebug(text, color = '#00ff00') {
-  debugPanel.innerText = text;
+  logMessages.push(text);
+  if (logMessages.length > 15) logMessages.shift(); // Ограничиваем количество строк
+  debugPanel.innerText = logMessages.join('\n');
   debugPanel.style.color = color;
   console.log(text);
 }
@@ -72,36 +77,46 @@ function triggerEyeFlash() {
 }
 
 // --- ПОДКЛЮЧЕНИЕ ---
-updateDebug('Статус: Попытка подключения к DA...');
+updateDebug('Статус: Попытка подключения к socket.donationalerts.ru:3001...');
 
 try {
-  const socket = io('wss://socket11.donationalerts.com', { 
+  // Пробуем старый проверенный сервер и тип 'minor'
+  const socket = io('socket.donationalerts.ru:3001', { 
     transports: ['websocket'],
-    reconnection: true
+    reconnection: true,
+    forceNew: true
   });
 
   socket.on('connect', () => {
-    updateDebug('Статус: Сокет подключен. Отправка токена...');
-    // Пробуем тип 'alert_widget'
+    updateDebug('✅ Сокет подключен. Отправка токена (type: minor)...');
     socket.emit('add-user', { 
       token: DA_TOKEN, 
-      type: 'alert_widget' 
+      type: 'minor' 
     });
   });
 
   socket.on('connect_error', (err) => {
-    updateDebug('Ошибка подключения: ' + err.message, 'red');
+    updateDebug('❌ Ошибка подключения: ' + err.message, 'red');
   });
 
-  // Слушаем донат (стандартное событие)
+  socket.on('connect_timeout', () => {
+    updateDebug('⏰ Тайм-аут подключения', 'red');
+  });
+
+  // 🕵️ ШПИОН: Перехватываем вообще все входящие события
+  const originalOnevent = socket.onevent;
+  socket.onevent = function (packet) {
+    const args = packet.data || [];
+    const eventName = args[0];
+    if (eventName !== 'connect' && eventName !== 'disconnect' && eventName !== 'error' && eventName !== 'connect_error') {
+      updateDebug('📡 Событие от сервера: ' + eventName, '#00ffff');
+    }
+    originalOnevent.call(this, packet);
+  };
+
+  // Явно слушаем донат
   socket.on('donation', (data) => {
-    updateDebug('💥 ДОНАТ ПОЛУЧЕН (donation)!', '#ffcc00');
-    triggerEyeFlash();
-  });
-
-  // Слушаем alert (иногда DA присылает это событие вместо donation)
-  socket.on('alert', (data) => {
-    updateDebug('💥 АЛЕРТ ПОЛУЧЕН (alert)!', '#ffcc00');
+    updateDebug('💥 ДОНАТ ПОЛУЧЕН!', '#ffcc00');
     triggerEyeFlash();
   });
 
