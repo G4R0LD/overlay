@@ -12,7 +12,6 @@
 <body>
 <div id="loading">Загрузка 3D-модели...</div>
 
-<!-- ПОДКЛЮЧЕНИЕ ЗВУКА. Путь указывает на папку sounds и файл skullfire.mp3 -->
 <audio id="donationSound" src="sounds/skullfire.mp3" preload="auto"></audio>
 
 <script type="importmap">
@@ -28,32 +27,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// ==========================================
-// НАСТРОЙКИ АНИМАЦИИ
-// ==========================================
 let targetExcitement = 0; 
 let currentExcitement = 0; 
 let donationTimer = 0;
-
 const sound = document.getElementById('donationSound');
 
-// Функция, которая запускает анимацию и звук
 function triggerEyeFlash() {
   console.log('Награда активирована! Запуск анимации.');
   targetExcitement = 1;
   donationTimer = 3.5; 
-  
   if (sound) {
     sound.currentTime = 0; 
-    sound.play().catch(error => {
-      console.log("Браузер заблокировал звук:", error);
-    });
+    sound.play().catch(error => console.log("Браузер заблокировал звук:", error));
   }
 }
 
-// ==========================================
 // 3D СЦЕНА
-// ==========================================
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: false });
@@ -63,13 +52,10 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0; 
 document.body.appendChild(renderer.domElement);
 
-// --- ОСВЕЩЕНИЕ ---
 scene.add(new THREE.AmbientLight(0x223344, 2.5)); 
-
 const moonLight = new THREE.DirectionalLight(0x88bbff, 3.5);
 moonLight.position.set(3, 5, 3); 
 scene.add(moonLight);
-
 const candleLight = new THREE.DirectionalLight(0xff8800, 2.5);
 candleLight.position.set(-4, -2, -3); 
 scene.add(candleLight);
@@ -79,16 +65,13 @@ camera.position.z = 6.5;
 const skullGroup = new THREE.Group();
 scene.add(skullGroup);
 
-// --- СВЕТ ИЗ ГЛАЗ (ЗЕЛЕНЫЙ) ---
 const leftEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0); 
 leftEyeLight.position.set(-0.55, 0.2, 1.0); 
 skullGroup.add(leftEyeLight);
-
 const rightEyeLight = new THREE.PointLight(0x00ff33, 3.5, 1.0);
 rightEyeLight.position.set(0.55, 0.2, 1.0); 
 skullGroup.add(rightEyeLight);
 
-// --- ТЕКСТУРА ОГНЯ ---
 function createFireTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128; canvas.height = 128;
@@ -103,24 +86,20 @@ function createFireTexture() {
   ctx.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(canvas);
 }
-
 const fireMaterial = new THREE.SpriteMaterial({ map: createFireTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
 const leftFire = new THREE.Sprite(fireMaterial.clone());
 leftFire.position.set(-0.55, 0.2, 1.1);
 leftFire.scale.set(0.7, 0.9, 1); 
 skullGroup.add(leftFire);
-
 const rightFire = new THREE.Sprite(fireMaterial.clone());
 rightFire.position.set(0.55, 0.2, 1.1);
 rightFire.scale.set(0.7, 0.9, 1);
 skullGroup.add(rightFire);
 
-// --- ИСКРЫ ИЗ ГЛАЗ ---
 const eyeSparksGeo = new THREE.BufferGeometry();
 const eyeSparkCount = 30;
 const eyeSparkPos = new Float32Array(eyeSparkCount * 3);
 const eyeSparkData = [];
-
 for(let i = 0; i < eyeSparkCount; i++) {
   const isLeft = i % 2 === 0;
   eyeSparkData.push({ isLeft: isLeft, speed: 0.01 + Math.random() * 0.02 });
@@ -129,29 +108,23 @@ for(let i = 0; i < eyeSparkCount; i++) {
   eyeSparkPos[i*3+2] = 1.1;
 }
 eyeSparksGeo.setAttribute('position', new THREE.BufferAttribute(eyeSparkPos, 3));
-
 const sparkMat = new THREE.PointsMaterial({ color: 0x88ff88, size: 0.05, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
 const eyeSparkSystem = new THREE.Points(eyeSparksGeo, sparkMat);
 skullGroup.add(eyeSparkSystem);
 
-// --- ЗАГРУЗКА МОДЕЛИ ---
 const loader = new GLTFLoader();
 const loadingDiv = document.getElementById('loading');
 loadingDiv.style.display = 'block';
-
 loader.load('skull_model/scene.gltf', function (gltf) {
   loadingDiv.style.display = 'none';
   const model = gltf.scene;
-  
   const box = new THREE.Box3().setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
   model.position.sub(center); 
-  
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
   const scale = 3.5 / maxDim; 
   model.scale.set(scale, scale, scale);
-  
   model.traverse((node) => {
     if (node.isMesh && node.material) {
       node.material.roughness = 0.9; 
@@ -159,7 +132,6 @@ loader.load('skull_model/scene.gltf', function (gltf) {
       node.material.color.multiplyScalar(0.95); 
     }
   });
-
   skullGroup.add(model); 
 }, function (xhr) {
   const percent = Math.round((xhr.loaded / xhr.total) * 100);
@@ -168,12 +140,10 @@ loader.load('skull_model/scene.gltf', function (gltf) {
   loadingDiv.innerHTML = "ОШИБКА: Не удалось загрузить scene.gltf.";
 });
 
-// --- ФОНОВЫЕ ЧАСТИЦЫ ---
 const particleCount = 150;
 const particlesGeo = new THREE.BufferGeometry();
 const positions = new Float32Array(particleCount * 3);
 const velocities = [];
-
 for (let i = 0; i < particleCount; i++) {
   positions[i * 3] = (Math.random() - 0.5) * 8;
   positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
@@ -181,7 +151,6 @@ for (let i = 0; i < particleCount; i++) {
   velocities.push({ x: (Math.random() - 0.5) * 0.01, y: Math.random() * 0.02 + 0.005, z: (Math.random() - 0.5) * 0.01 });
 }
 particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
 const sparkCanvas = document.createElement('canvas');
 sparkCanvas.width = 32; sparkCanvas.height = 32;
 const sCtx = sparkCanvas.getContext('2d');
@@ -189,35 +158,26 @@ const sGrad = sCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
 sGrad.addColorStop(0, 'rgba(200, 255, 200, 1)'); 
 sGrad.addColorStop(1, 'rgba(0, 255, 0, 0)');
 sCtx.fillStyle = sGrad; sCtx.fillRect(0, 0, 32, 32);
-
 const particlesMat = new THREE.PointsMaterial({ size: 0.12, map: new THREE.CanvasTexture(sparkCanvas), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
 const particleSystem = new THREE.Points(particlesGeo, particlesMat);
 scene.add(particleSystem);
 
-// ==========================================
-// АНИМАЦИЯ
-// ==========================================
 const clock = new THREE.Clock();
 
 function animate() {
   requestAnimationFrame(animate);
   
-  // Используем delta для плавности
-  const delta = clock.getDelta(); 
+  let delta = clock.getDelta(); 
+  if (delta > 0.1) delta = 0.1; 
   const time = clock.getElapsedTime();
 
-  // Логика таймера доната
   if (donationTimer > 0) {
     donationTimer -= delta;
-    if (donationTimer <= 0) {
-      targetExcitement = 0; // Начинаем плавно затухать
-    }
+    if (donationTimer <= 0) targetExcitement = 0;
   }
 
-  // Плавный переход
   currentExcitement += (targetExcitement - currentExcitement) * 3.0 * delta;
 
-  // Базовая анимация покоя
   let targetY = Math.sin(time * 1.2) * 0.1;
   let targetRotY = Math.sin(time * 0.6) * 0.15;
   let targetRotX = Math.cos(time * 0.8) * 0.05;
@@ -228,18 +188,12 @@ function animate() {
   let lightIntensityR = 3.5 + Math.random() * 1.5;
   let sparkSpeedMult = 1.0;
 
-  // Анимация возбуждения (донат)
   if (currentExcitement > 0.01) {
-    // Наклон вверх
     targetRotX -= 0.35 * currentExcitement;
-    
-    // Тряска (убавленная)
     const shakeX = Math.sin(time * 60) * 0.015 * currentExcitement;
     const shakeY = Math.cos(time * 70) * 0.015 * currentExcitement;
     targetY += shakeY;
     targetRotY += shakeX;
-    
-    // Вспышка глаз (умеренная)
     const eyePulse = 1 + currentExcitement * 1.2; 
     flickerL *= eyePulse;
     flickerR *= eyePulse;
@@ -248,28 +202,22 @@ function animate() {
     sparkSpeedMult = 1 + currentExcitement * 2;
   }
 
-  // Применяем позиции
   skullGroup.position.y = targetY;
   skullGroup.rotation.y = targetRotY;
   skullGroup.rotation.x = targetRotX;
 
-  // Применяем огонь
   leftFire.scale.set(flickerL * 0.7, flickerL * 0.9, 1);
   rightFire.scale.set(flickerR * 0.7, flickerR * 0.9, 1);
   leftFire.material.opacity = 0.8 + Math.random() * 0.2;
   rightFire.material.opacity = 0.8 + Math.random() * 0.2;
-
-  // Применяем свет
   leftEyeLight.intensity = lightIntensityL;
   rightEyeLight.intensity = lightIntensityR;
 
-  // Искры из глаз
   const ePos = eyeSparkSystem.geometry.attributes.position.array;
   for(let i = 0; i < eyeSparkCount; i++) {
     let data = eyeSparkData[i];
     ePos[i*3+1] += data.speed * sparkSpeedMult; 
     ePos[i*3] += Math.sin(time * 10 + i) * 0.005 * sparkSpeedMult; 
-
     if(ePos[i*3+1] > 0.8) {
       ePos[i*3+1] = 0.2;
       ePos[i*3] = (data.isLeft ? -0.55 : 0.55) + (Math.random() - 0.5) * 0.1;
@@ -277,7 +225,6 @@ function animate() {
   }
   eyeSparkSystem.geometry.attributes.position.needsUpdate = true;
 
-  // Фоновые искры
   const posArray = particleSystem.geometry.attributes.position.array;
   for (let i = 0; i < particleCount; i++) {
     posArray[i * 3] += velocities[i].x;
@@ -293,61 +240,70 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-// ========== ПОДКЛЮЧЕНИЕ К CLOUDFLARE WORKER ==========
-let ws = null;
-let lastPingTime = Date.now();
+// ========== ПРЯМОЕ ПОДКЛЮЧЕНИЕ К TWITCH ==========
+// Меняем ссылку на твой Worker (БЕЗ wss://, только https://)
+const WORKER_URL = 'https://skull-overlay-worker.notingem-notingem.workers.dev';
 
-function connectTwitch() {
-  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
-    return; 
-  }
+async function connectTwitch() {
+  console.log('Получаем токен от Cloudflare...');
+  try {
+    const res = await fetch(WORKER_URL + '/token');
+    if (!res.ok) throw new Error('Ошибка получения токена');
+    const { access_token, client_id, broadcaster_id } = await res.json();
+    console.log('Токен получен. Подключаемся к Twitch...');
 
-  console.log('Попытка подключения к Cloudflare Worker...');
-  ws = new WebSocket('wss://skull-overlay-worker.notingem-notingem.workers.dev');
+    const ws = new WebSocket('wss://eventsub.wss.twitch.tv/ws');
+    
+    ws.onopen = () => console.log('✅ WebSocket к Twitch открыт');
 
-  ws.onopen = () => {
-    console.log('✅ Подключено к Cloudflare Worker');
-    lastPingTime = Date.now(); // Сбрасываем таймер при подключении
-  };
-
-  ws.onmessage = (event) => {
-    lastPingTime = Date.now(); // Любое сообщение продлевает жизнь соединению
-
-    try {
+    ws.onmessage = async (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === 'ping') return; // Игнорируем служебный пинг
+      const messageType = data.metadata?.message_type;
 
-      if (data.type === 'reward') {
-        if (data.title === 'Пощекотать череп') {
-          console.log('Награда активирована!');
-          triggerEyeFlash();
+      if (messageType === 'session_welcome') {
+        const sessionId = data.payload.session.id;
+        console.log('Сессия Twitch создана. Подписываемся на награды...');
+        
+        await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+          method: 'POST',
+          headers: {
+            'Client-ID': client_id,
+            'Authorization': `Bearer ${access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            type: 'channel.channel_points_custom_reward_redemption.add',
+            version: '1',
+            condition: { broadcaster_user_id: broadcaster_id },
+            transport: { method: 'websocket', session_id: sessionId }
+          })
+        });
+        console.log('Подписка создана!');
+      }
+
+      if (messageType === 'notification') {
+        if (data.metadata.subscription_type === 'channel.channel_points_custom_reward_redemption.add') {
+          const rewardTitle = data.payload.event.reward.title;
+          console.log('Пришла награда:', rewardTitle);
+          if (rewardTitle === 'Пощекотать череп') {
+            triggerEyeFlash();
+          }
         }
       }
-    } catch (e) {
-      console.error('Ошибка парсинга сообщения:', e);
-    }
-  };
+    };
 
-  ws.onerror = (err) => {
-    console.error('❌ Ошибка WebSocket:', err);
-  };
+    ws.onclose = () => {
+      console.log('Соединение с Twitch закрыто. Переподключение через 5 секунд...');
+      setTimeout(connectTwitch, 5000);
+    };
 
-  ws.onclose = () => {
-    console.log('Соединение закрыто.');
-    ws = null;
-  };
-}
+    ws.onerror = (err) => console.error('Ошибка WebSocket к Twitch:', err);
 
-// Сторожевой пес: проверяет соединение каждые 5 секунд
-setInterval(() => {
-  // Если соединения нет ИЛИ оно открыто, но молчит уже 30 секунд -> перезапускаем
-  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-    connectTwitch();
-  } else if (ws.readyState === WebSocket.OPEN && (Date.now() - lastPingTime > 30000)) {
-    console.log('Соединение зависло (нет пинга 30 сек). Перезапускаем...');
-    ws.close(); // Это вызовет onclose, и сторожевой пес переподключится
+  } catch (err) {
+    console.error('Ошибка подключения:', err);
+    setTimeout(connectTwitch, 5000);
   }
-}, 5000);
+}
 
 connectTwitch();
 
