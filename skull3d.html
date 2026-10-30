@@ -293,31 +293,61 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-// ==========================================
-// ПОДКЛЮЧЕНИЕ К CLOUDFLARE WORKER (TWITCH)
-// ==========================================
-function connectTwitch() {
-  // Твой URL воркера
-  const ws = new WebSocket('wss://skull-overlay-worker.notingem-notingem.workers.dev');
+// ========== ПОДКЛЮЧЕНИЕ К CLOUDFLARE WORKER ==========
+let ws = null;
+let lastPingTime = Date.now();
 
-  ws.onopen = () => console.log('✅ Подключено к Cloudflare Worker');
+function connectTwitch() {
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+    return; 
+  }
+
+  console.log('Попытка подключения к Cloudflare Worker...');
+  ws = new WebSocket('wss://skull-overlay-worker.notingem-notingem.workers.dev');
+
+  ws.onopen = () => {
+    console.log('✅ Подключено к Cloudflare Worker');
+    lastPingTime = Date.now(); // Сбрасываем таймер при подключении
+  };
 
   ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === 'reward') {
-      if (data.title === 'Пощекотать череп') {
-        // ВЫЗЫВАЕМ ТУ САМУЮ АНИМАЦИЮ
-        triggerEyeFlash();
+    lastPingTime = Date.now(); // Любое сообщение продлевает жизнь соединению
+
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type === 'ping') return; // Игнорируем служебный пинг
+
+      if (data.type === 'reward') {
+        if (data.title === 'Пощекотать череп') {
+          console.log('Награда активирована!');
+          triggerEyeFlash();
+        }
       }
+    } catch (e) {
+      console.error('Ошибка парсинга сообщения:', e);
     }
   };
 
-  ws.onerror = (err) => console.error('❌ Ошибка WebSocket:', err);
+  ws.onerror = (err) => {
+    console.error('❌ Ошибка WebSocket:', err);
+  };
+
   ws.onclose = () => {
-    console.log('Соединение закрыто. Переподключение через 5 секунд...');
-    setTimeout(connectTwitch, 5000); 
+    console.log('Соединение закрыто.');
+    ws = null;
   };
 }
+
+// Сторожевой пес: проверяет соединение каждые 5 секунд
+setInterval(() => {
+  // Если соединения нет ИЛИ оно открыто, но молчит уже 30 секунд -> перезапускаем
+  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+    connectTwitch();
+  } else if (ws.readyState === WebSocket.OPEN && (Date.now() - lastPingTime > 30000)) {
+    console.log('Соединение зависло (нет пинга 30 сек). Перезапускаем...');
+    ws.close(); // Это вызовет onclose, и сторожевой пес переподключится
+  }
+}, 5000);
 
 connectTwitch();
 
