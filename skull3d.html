@@ -202,7 +202,8 @@ function animate() {
 
 // ========== ПОДКЛЮЧЕНИЕ К CLOUDFLARE WORKER ==========
 function connectTwitch() {
-  // ВНИМАНИЕ! ЗАМЕНИ ЭТУ ССЫЛКУ НА СВОЮ ИЗ CLOUDFLARE (начинается на wss://)
+  // ВНИМАНИЕ! СЮДА НУЖНО ВСТАВИТЬ ССЫЛКУ НА ТВОЙ WORKER (начинается на wss://)
+  // Пример: 'wss://skull-overlay-worker.notingem-notingem.workers.dev'
   const ws = new WebSocket('wss://skull-overlay-worker.notingem-notingem.workers.dev');
 
   ws.onopen = () => console.log('Подключено к Cloudflare Worker');
@@ -220,7 +221,7 @@ function connectTwitch() {
   ws.onerror = (err) => console.error('Ошибка WebSocket:', err);
   ws.onclose = () => {
     console.log('Соединение закрыто. Переподключение через 5 секунд...');
-    setTimeout(connectTwitch, 5000); // Оно само переподключится
+    setTimeout(connectTwitch, 5000); 
   };
 }
 
