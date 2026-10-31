@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>🎃 Halloween Overlay</title>
+<style>
+  html, body { margin:0; padding:0; background:transparent; overflow:hidden;
+               width:100%; height:100%; }
+  canvas { display:block; pointer-events:none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+const q = new URLSearchParams(location.search);
+const OPT = {
+  bats:  q.get('bats')  !== '0',
+  blood: q.get('blood') !== '0',
+  scene: q.get('scene') === '1',
+  lightning: q.get('lightning') !== '0',
+  spider: q.get('spider') !== '0'
+};
+
+let W, H;
+function resize() {
+  W = c.width  = innerWidth;
+  H = c.height = innerHeight;
+  c.style.width  = W + 'px';
+  c.style.height = H + 'px';
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------- МОЛНИЯ (Далекая, мягкая) ----------
+let lightningActive = false;
+let lightningTimer = 0;
+let nextLightning = Math.random() * 300;
+let lightningPath = [];
+
+function triggerLightning() {
+  lightningActive = true;
+  lightningTimer = 15; 
+  lightningPath = [];
+  let lx = Math.random() * W; 
+  let ly = 0;
+  lightningPath.push({x: lx, y: ly});
+  
+  const maxY = H * 0.3 + Math.random() * (H * 0.2); 
+  
+  while (ly < maxY) {
+    lx += (Math.random() - 0.5) * 50; 
+    ly += Math.random() * 40 + 20;
+    lightningPath.push({x: lx, y: ly});
+  }
+}
+
+function drawLightning() {
+  if (!OPT.lightning) return;
+  nextLightning--;
+  if (nextLightning <= 0) {
+    triggerLightning();
+    nextLightning = 1200 + Math.random() * 3000; 
+  }
+  if (lightningActive) {
+    const alpha = lightningTimer / 15;
+
+    const grad = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+    grad.addColorStop(0, `rgba(200, 220, 255, ${alpha * 0.15})`);
+    grad.addColorStop(1, 'rgba(200, 220, 255, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = `rgba(150, 200, 255, ${alpha * 0.3})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(lightningPath[0].x, lightningPath[0].y);
+    for(let i=1; i<lightningPath.length; i++) {
+      ctx.lineTo(lightningPath[i].x, lightningPath[i].y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    lightningTimer--;
+    if (lightningTimer <= 0) lightningActive = false;
+  }
+}
+
+// ---------- ЗЕЛЁНЫЕ СВЕТЛЯЧКИ ----------
+class Ember {
+  constructor() { this.reset(true); }
+  reset(init = false) {
+    this.x = Math.random() * W; 
+    this.y = init ? Math.random() * H : H + Math.random() * 50; 
+    this.size = 2 + Math.random() * 4; 
+    this.speedY = 0.1 + Math.random() * 0.3; 
+    this.speedX = (Math.random() - 0.5) * 0.3; 
+    this.alpha = 0.5 + Math.random() * 0.5; 
+  }
+  update() {
+    this.y -= this.speedY; 
+    this.x += this.speedX + Math.sin(this.y * 0.01) * 0.5;
+    this.alpha += (Math.random() - 0.5) * 0.02;
+    this.alpha = Math.max(0.3, Math.min(1.0, this.alpha));
+    if (this.y < -20) this.reset(false);
+  }
+  draw() {
+    const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 6);
+    g.addColorStop(0, `rgba(100, 255, 100, ${this.alpha})`); 
+    g.addColorStop(0.4, `rgba(50, 200, 50, ${this.alpha * 0.5})`);
+    g.addColorStop(1, 'rgba(0, 150, 0, 0)');
+    ctx.fillStyle = g; 
+    ctx.beginPath(); 
+    ctx.arc(this.x, this.y, this.size * 6, 0, Math.PI * 2); 
+    ctx.fill();
+  }
+}
+
+// ---------- МЫШИ ----------
+class Bat {
+  constructor() { this.reset(); }
+  reset() {
+    this.dir = Math.random() < 0.5 ? 1 : -1;
+    this.x = this.dir === 1 ? -60 : W + 60;
+    this.baseY = 20 + Math.random() * (H * 0.35); 
+    this.y = this.baseY;
+    this.size = 10 + Math.random() * 14; 
+    this.speed = 0.5 + Math.random() * 1.0; 
+    this.t = Math.random() * 100; 
+    this.amp = 8 + Math.random() * 25;
+  }
+  update() {
+    this.t += 0.05; 
+    this.x += this.speed * this.dir;
+    this.y = this.baseY + Math.sin(this.t) * this.amp;
+    if ((this.dir === 1 && this.x > W + 80) || (this.dir === -1 && this.x < -80)) this.reset();
+  }
+  draw() {
+    ctx.save(); ctx.translate(this.x, this.y);
+    if (this.dir === -1) ctx.scale(-1, 1);
+    const flap = Math.sin(this.t * 2) * 0.5;
+    ctx.fillStyle = 'rgba(10,5,15,0.9)';
+    ctx.shadowColor = 'rgba(255,0,60,0.4)'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.ellipse(0, 0, this.size * 0.28, this.size * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -this.size * 0.2); ctx.quadraticCurveTo(-this.size, -this.size * 0.7 - flap * this.size, -this.size * 1.5, this.size * 0.25); ctx.quadraticCurveTo(-this.size * 0.7, 0, 0, this.size * 0.1); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -this.size * 0.2); ctx.quadraticCurveTo(this.size, -this.size * 0.7 - flap * this.size, this.size * 1.5, this.size * 0.25); ctx.quadraticCurveTo(this.size * 0.7, 0, 0, this.size * 0.1); ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ---------- КРОВЬ (Гладкая, тягучая) ----------
+class Blood {
+  constructor() { this.respawn(); }
+  respawn() {
+    this.x = Math.random() * W; 
+    this.y = -10; 
+    this.len = 0;
+    this.maxLen = 80 + Math.random() * 200; 
+    this.speed = 0.1 + Math.random() * 0.2; 
+    this.width = 3 + Math.random() * 4; 
+    this.timer = Math.random() * 800;
+  }
+  update() {
+    if (this.timer > 0) { this.timer--; return; }
+    this.len += this.speed;
+    if (this.len > this.maxLen) { 
+      this.width -= 0.01; 
+      if (this.width <= 0) this.respawn(); 
+    }
+  }
+  draw() {
+    if (this.len <= 0 || this.width <= 0) return;
+    
+    const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.len);
+    gradient.addColorStop(0, 'rgba(60,0,0,0.9)'); 
+    gradient.addColorStop(0.8, 'rgba(120,0,0,0.9)'); 
+    gradient.addColorStop(1, 'rgba(160,0,0,0.9)'); 
+    ctx.fillStyle = gradient;
+
+    ctx.beginPath();
+    const w = this.width;
+    ctx.moveTo(this.x - w/2, this.y);
+    ctx.lineTo(this.x - w*0.15, this.y + this.len);
+    ctx.arc(this.x, this.y + this.len, w*0.4, Math.PI, 0);
+    ctx.lineTo(this.x + w/2, this.y);
+    ctx.fill();
+  }
+}
+
+// ---------- ПАУК ----------
+class Spider {
+  constructor() {
+    this.x = W * 0.15; this.y = -20;
+    this.targetY = 150 + Math.random() * 150;
+    this.state = 0; this.timer = 0;
+  }
+  update() {
+    if (!OPT.spider) return;
+    if (this.state === 0) {
+      this.y += 0.15; 
+      if (this.y >= this.targetY) { this.state = 1; this.timer = 600; } 
+    } else if (this.state === 1) {
+      this.timer--;
+      if (this.timer <= 0) this.state = 2;
+    } else if (this.state === 2) {
+      this.y -= 0.4; 
+      if (this.y < -50) {
+        this.targetY = 150 + Math.random() * 200;
+        this.x = W * 0.1 + Math.random() * W * 0.8;
+        this.state = 0;
+      }
+    }
+  }
+  draw() {
+    if (!OPT.spider || (this.state === 2 && this.y < 0)) return;
+    ctx.strokeStyle = 'rgba(200,200,200,0.3)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(this.x, 0); ctx.lineTo(this.x, this.y); ctx.stroke();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(this.x, this.y, 8, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(this.x, this.y - 10, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
+    [-12, -6, 6, 12].forEach(off => {
+      ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.quadraticCurveTo(this.x + off*1.5, this.y - 10, this.x + off*2, this.y - 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.quadraticCurveTo(this.x + off*1.5, this.y + 10, this.x + off*2, this.y + 15); ctx.stroke();
+    });
+  }
+}
+
+// ---------- ИНИЦИАЛИЗАЦИЯ ----------
+const bats  = OPT.bats ? Array.from({length:5},  () => new Bat())  : []; 
+const blood = OPT.blood? Array.from({length:8}, () => new Blood()): []; 
+const embers = Array.from({length:30}, () => new Ember()); // ТУТ БЫЛО 60, СТАЛО 30
+const spider = new Spider();
+
+// ---------- ЦИКЛ ----------
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+  if (OPT.scene) { ctx.fillStyle = '#08000f'; ctx.fillRect(0, 0, W, H); }
+
+  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.8);
+  vg.addColorStop(0, 'rgba(5, 10, 20, 0)');
+  vg.addColorStop(1, 'rgba(5, 10, 20, 0.6)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+  embers.forEach(e => { e.update(); e.draw(); });
+  blood.forEach(b => { b.update(); b.draw(); });
+  bats.forEach(b  => { b.update(); b.draw();  });
+  
+  spider.update(); spider.draw();
+  drawLightning();
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
