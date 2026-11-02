@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Колокольчик - Награда Twitch</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: transparent !important;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        canvas { 
+            display: block;
+            filter: drop-shadow(0px 15px 25px rgba(0, 0, 0, 0.6)); 
+        }
+    </style>
+</head>
+<body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ==========================================
+// 1. СЦЕНА, КАМЕРА, СВЕТ
+// ==========================================
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 12);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1; 
+document.body.appendChild(renderer.domElement);
+
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environment = envTexture;
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+dirLight.position.set(5, 10, 7);
+scene.add(dirLight);
+const bottomLight = new THREE.PointLight(0xffcc00, 4, 10);
+bottomLight.position.set(0, -5, 3);
+scene.add(bottomLight);
+
+// ==========================================
+// 2. КОЛОКОЛЬЧИК
+// ==========================================
+const swingPivot = new THREE.Group();
+swingPivot.position.set(0, 4.0, 0);
+scene.add(swingPivot);
+
+const ropeCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 4.0, 0), new THREE.Vector3(0, 3.0, 0), new THREE.Vector3(0, 1.95, 0) 
+]);
+const ropeMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 1.0 });
+const ropeMesh = new THREE.Mesh(new THREE.TubeGeometry(ropeCurve, 24, 0.06, 8, false), ropeMat);
+scene.add(ropeMesh);
+
+const bellGroup = new THREE.Group();
+bellGroup.position.set(0, -2.0, 0);
+swingPivot.add(bellGroup);
+
+const goldMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffd700, metalness: 1.0, roughness: 0.15, clearcoat: 1.0,
+});
+const handleGeo = new THREE.TorusGeometry(0.18, 0.05, 16, 64);
+const handle = new THREE.Mesh(handleGeo, goldMat);
+handle.position.set(0, -0.05, 0); 
+handle.rotation.y = Math.PI / 2;
+bellGroup.add(handle);
+
+const points = [];
+points.push(new THREE.Vector2(0.0, 0.0)); points.push(new THREE.Vector2(0.15, -0.1)); 
+points.push(new THREE.Vector2(0.3, -0.4)); points.push(new THREE.Vector2(0.4, -1.0));  
+points.push(new THREE.Vector2(0.55, -1.8)); points.push(new THREE.Vector2(0.8, -2.5));  
+points.push(new THREE.Vector2(1.15, -2.9)); points.push(new THREE.Vector2(1.35, -3.0)); 
+points.push(new THREE.Vector2(1.15, -3.0)); points.push(new THREE.Vector2(0.95, -2.9)); 
+points.push(new THREE.Vector2(0.65, -2.5)); points.push(new THREE.Vector2(0.4, -1.8));  
+points.push(new THREE.Vector2(0.25, -1.0)); points.push(new THREE.Vector2(0.1, -0.4));  
+points.push(new THREE.Vector2(0.0, -0.1));  
+
+const bellGeo = new THREE.LatheGeometry(points, 64);
+const bellMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffcc00, metalness: 1.0, roughness: 0.25, clearcoat: 0.8, side: THREE.DoubleSide,
+});
+const bellBody = new THREE.Mesh(bellGeo, bellMat);
+bellBody.position.set(0, -0.2, 0);
+bellGroup.add(bellBody);
+
+const clapperPivot = new THREE.Group();
+clapperPivot.position.set(0, -0.5, 0);
+bellGroup.add(clapperPivot);
+
+const clapperStringGeo = new THREE.CylinderGeometry(0.02, 0.02, 3.0, 8);
+const clapperStringMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+const clapperString = new THREE.Mesh(clapperStringGeo, clapperStringMat);
+clapperString.position.set(0, -1.5, 0);
+clapperPivot.add(clapperString);
+
+const clapperGeo = new THREE.SphereGeometry(0.25, 32, 32);
+const clapperMat = new THREE.MeshPhysicalMaterial({ color: 0xe6b800, metalness: 1.0, roughness: 0.3 });
+const clapper = new THREE.Mesh(clapperGeo, clapperMat);
+clapper.position.set(0, -2.95, 0); 
+clapperPivot.add(clapper);
+
+// ==========================================
+// 3. ЗВУК
+// ==========================================
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function playBellSound(impactForce = 15.0) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const baseFreq = 1400; 
+    const volumeMultiplier = Math.min(1.0, Math.max(0.1, impactForce / 15.0));
+
+    const partials = [
+        { ratio: 0.5, vol: 0.1, decay: 1.5 },
+        { ratio: 1.0, vol: 0.4, decay: 1.2 },
+        { ratio: 1.2, vol: 0.6, decay: 1.0 },
+        { ratio: 2.0, vol: 0.5, decay: 0.8 },
+        { ratio: 2.7, vol: 0.4, decay: 0.6 },
+        { ratio: 3.1, vol: 0.3, decay: 0.4 }
+    ];
+
+    partials.forEach(p => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq * p.ratio + (Math.random() - 0.5) * 15, now);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(p.vol * 0.2 * volumeMultiplier, now + 0.01); 
+        gain.gain.exponentialRampToValueAtTime(0.001, now + p.decay); 
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + p.decay);
+    });
+}
+
+// ==========================================
+// 4. ФИЗИКА
+// ==========================================
+let bellAngle = 0;      
+let bellVel = 0;        
+let clapperAngle = 0;   
+let clapperVel = 0;     
+const ropeSoftness = 0.3; 
+let clapperHitWall = false; 
+
+function ringTheBell() {
+    initAudio();
+    bellVel += (Math.random() > 0.5 ? 1 : -1) * 6.0;
+    clapperVel += (Math.random() - 0.5) * 15.0;
+}
+
+window.ringTheBell = ringTheBell;
+document.body.addEventListener('click', ringTheBell);
+
+const clock = new THREE.Clock();
+
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.05);
+    const time = clock.getElapsedTime();
+
+    const bellK = 15.0, bellDamp = 2.0, clapperK = 35.0, clapperDamp = 1.5;
+    const windForce = Math.sin(time * 1.2) * 0.8;
+
+    const bellAccel = -bellK * bellAngle - bellDamp * bellVel + windForce;
+    bellVel += bellAccel * delta;
+    bellAngle += bellVel * delta;
+
+    const clapperAccel = -clapperK * clapperAngle - clapperDamp * clapperVel - (bellAccel * 1.2);
+    clapperVel += clapperAccel * delta;
+    clapperAngle += clapperVel * delta;
+
+    const maxClapperAngle = 0.22;
+    if (clapperAngle > maxClapperAngle) {
+        clapperAngle = maxClapperAngle;
+        if (!clapperHitWall) { playBellSound(Math.abs(clapperVel)); clapperHitWall = true; }
+        clapperVel = -clapperVel * 0.4; 
+    } else if (clapperAngle < -maxClapperAngle) {
+        clapperAngle = -maxClapperAngle;
+        if (!clapperHitWall) { playBellSound(Math.abs(clapperVel)); clapperHitWall = true; }
+        clapperVel = -clapperVel * 0.4; 
+    } else {
+        clapperHitWall = false; 
+    }
+
+    swingPivot.rotation.z = bellAngle;
+    clapperPivot.rotation.z = clapperAngle;
+
+    const pivotPos = new THREE.Vector3(0, 4.0, 0);
+    const handleLocalPos = new THREE.Vector3(0, -2.05, 0); 
+    const handleWorldPos = handleLocalPos.clone().applyEuler(new THREE.Euler(0, 0, bellAngle)).add(pivotPos);
+    const midWorldPos = pivotPos.clone().lerp(handleWorldPos, 0.5);
+    midWorldPos.x -= bellAngle * ropeSoftness; 
+
+    ropeCurve.points[0].copy(pivotPos);
+    ropeCurve.points[1].copy(midWorldPos);
+    ropeCurve.points[2].copy(handleWorldPos);
+
+    ropeMesh.geometry.dispose();
+    ropeMesh.geometry = new THREE.TubeGeometry(ropeCurve, 24, 0.06, 8, false);
+
+    renderer.render(scene, camera);
+}
+
+animate();
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ==========================================
+// 5. ПОДКЛЮЧЕНИЕ К TWITCH (НАГРАДА ЗА БАЛЛЫ)
+// ==========================================
+const WORKER_URL = 'https://skull-overlay-worker.notingem-notingem.workers.dev';
+
+// ⚠️ ВАЖНО: Название награды в Twitch должно совпадать символ-в-символ!
+const REWARD_TITLE = 'Позвонить в колокол'; 
+
+async function connectTwitchForBell() {
+    console.log('Колокольчик: получаем токен от Cloudflare...');
+    try {
+        const res = await fetch(WORKER_URL + '/token');
+        if (!res.ok) throw new Error('Ошибка получения токена: ' + res.status);
+        const { access_token, client_id, broadcaster_id } = await res.json();
+        console.log('Колокольчик: токен получен. Подключаемся к Twitch...');
+
+        const ws = new WebSocket('wss://eventsub.wss.twitch.tv/ws');
+
+        ws.onopen = () => console.log('✅ Колокольчик: WebSocket к Twitch открыт');
+
+        ws.onmessage = async (event) => {
+            const data = JSON.parse(event.data);
+            const messageType = data.metadata && data.metadata.message_type;
+
+            if (messageType === 'session_welcome') {
+                const sessionId = data.payload.session.id;
+                console.log('Колокольчик: сессия создана. Подписываемся на награды...');
+
+                try {
+                    const subRes = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+                        method: 'POST',
+                        headers: {
+                            'Client-ID': client_id,
+                            'Authorization': `Bearer ${access_token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            type: 'channel.channel_points_custom_reward_redemption.add',
+                            version: '1',
+                            condition: { broadcaster_user_id: broadcaster_id },
+                            transport: { method: 'websocket', session_id: sessionId }
+                        })
+                    });
+                    if (!subRes.ok) {
+                        const errText = await subRes.text();
+                        console.error('Колокольчик: не удалось создать подписку:', subRes.status, errText);
+                    } else {
+                        console.log('✅ Колокольчик: подписка на награды создана!');
+                    }
+                } catch (e) {
+                    console.error('Колокольчик: ошибка при подписке:', e);
+                }
+            }
+
+            if (messageType === 'notification') {
+                if (data.metadata.subscription_type === 'channel.channel_points_custom_reward_redemption.add') {
+                    const rewardTitle = data.payload.event.reward.title;
+                    console.log('Колокольчик: пришла награда:', rewardTitle);
+
+                    if (rewardTitle === REWARD_TITLE) {
+                        console.log('🔔 Колокольчик: звеним!');
+                        window.ringTheBell();
+                    }
+                }
+            }
+
+            if (messageType === 'revocation') {
+                console.warn('Колокольчик: подписка отозвана Twitch-ом:', data.payload);
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('Колокольчик: соединение с Twitch закрыто. Переподключение через 5 сек...');
+            setTimeout(connectTwitchForBell, 5000);
+        };
+
+        ws.onerror = (err) => console.error('Колокольчик: ошибка WebSocket к Twitch:', err);
+
+    } catch (err) {
+        console.error('Колокольчик: ошибка подключения:', err);
+        setTimeout(connectTwitchForBell, 5000);
+    }
+}
+
+connectTwitchForBell();
+</script>
+</body>
+</html>
