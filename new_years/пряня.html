@@ -269,7 +269,6 @@
             <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#5A3010" flood-opacity="0.6"/>
           </filter>
 
-          <!-- Тень для 3D-надписи -->
           <filter id="icingTextShadow" x="-30%" y="-30%" width="160%" height="160%">
             <feDropShadow dx="0" dy="4" stdDeviation="2" flood-color="#2F5A66" flood-opacity="0.45"/>
           </filter>
@@ -288,7 +287,6 @@
             <stop offset="100%" stop-color="#E0E0E0" stop-opacity="1" />
           </linearGradient>
 
-          <!-- Градиент глазури для текста -->
           <linearGradient id="icingTextGrad" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%"   stop-color="#FFFFFF" />
             <stop offset="55%"  stop-color="#F4FEFF" />
@@ -387,7 +385,6 @@
 
         <!-- 3D-НАДПИСЬ «ПРИВЕТ!» -->
         <g class="greet-text" aria-hidden="true">
-          <!-- Глубина / нижний слой -->
           <text x="300" y="86" text-anchor="middle"
                 font-family="'Comic Sans MS', 'Trebuchet MS', 'Segoe UI', sans-serif"
                 font-size="58" font-weight="900" letter-spacing="1"
@@ -395,8 +392,6 @@
                 stroke-linejoin="round" paint-order="stroke fill" opacity="0.55">
             Привет!
           </text>
-
-          <!-- Средний слой -->
           <text x="300" y="83" text-anchor="middle"
                 font-family="'Comic Sans MS', 'Trebuchet MS', 'Segoe UI', sans-serif"
                 font-size="58" font-weight="900" letter-spacing="1"
@@ -404,8 +399,6 @@
                 stroke-linejoin="round" paint-order="stroke fill">
             Привет!
           </text>
-
-          <!-- Основной глазурный слой -->
           <text x="300" y="80" text-anchor="middle"
                 font-family="'Comic Sans MS', 'Trebuchet MS', 'Segoe UI', sans-serif"
                 font-size="58" font-weight="900" letter-spacing="1"
@@ -414,8 +407,6 @@
                 filter="url(#icingTextShadow)">
             Привет!
           </text>
-
-          <!-- Блик -->
           <text x="298" y="76" text-anchor="middle"
                 font-family="'Comic Sans MS', 'Trebuchet MS', 'Segoe UI', sans-serif"
                 font-size="58" font-weight="900" letter-spacing="1"
@@ -427,13 +418,15 @@
     </div>
   </div>
 
+  <!-- ============================================================
+       ЛОКАЛЬНАЯ АНИМАЦИЯ (клик + управление очередью)
+       ============================================================ -->
   <script>
     (function () {
       const character  = document.getElementById('gingy-character');
       const greetLayer = document.getElementById('greet-layer');
 
-      const GREET_DURATION = 2800; // мс — совпадает с CSS
-      const REPLAY_GAP     = 140;  // мс между повторами
+      const REPLAY_GAP = 140; // мс между повторами при спаме награды
 
       let isGreeting = false;
       let queued     = false;
@@ -459,6 +452,95 @@
       window.triggerGingyWave = triggerGingyWave;
       character.addEventListener('click', triggerGingyWave);
     })();
+  </script>
+
+  <!-- ============================================================
+       ПРЯМОЕ ПОДКЛЮЧЕНИЕ К TWITCH (как у черепа)
+       ============================================================ -->
+  <script>
+    // Ссылка на тот же Worker, что используется в skull3d.html
+    const WORKER_URL = 'https://skull-overlay-worker.notingem-notingem.workers.dev';
+
+    // Название награды в Twitch. Должно совпадать символ-в-символ.
+    const REWARD_TITLE = 'Поприветствовать Пряню';
+
+    async function connectTwitch() {
+      console.log('Пряня: получаем токен от Cloudflare...');
+      try {
+        const res = await fetch(WORKER_URL + '/token');
+        if (!res.ok) throw new Error('Ошибка получения токена: ' + res.status);
+        const { access_token, client_id, broadcaster_id } = await res.json();
+        console.log('Пряня: токен получен. Подключаемся к Twitch...');
+
+        const ws = new WebSocket('wss://eventsub.wss.twitch.tv/ws');
+
+        ws.onopen = () => console.log('✅ Пряня: WebSocket к Twitch открыт');
+
+        ws.onmessage = async (event) => {
+          const data = JSON.parse(event.data);
+          const messageType = data.metadata && data.metadata.message_type;
+
+          if (messageType === 'session_welcome') {
+            const sessionId = data.payload.session.id;
+            console.log('Пряня: сессия создана. Подписываемся на награды...');
+
+            try {
+              const subRes = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+                method: 'POST',
+                headers: {
+                  'Client-ID': client_id,
+                  'Authorization': `Bearer ${access_token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  type: 'channel.channel_points_custom_reward_redemption.add',
+                  version: '1',
+                  condition: { broadcaster_user_id: broadcaster_id },
+                  transport: { method: 'websocket', session_id: sessionId }
+                })
+              });
+              if (!subRes.ok) {
+                const errText = await subRes.text();
+                console.error('Пряня: не удалось создать подписку:', subRes.status, errText);
+              } else {
+                console.log('✅ Пряня: подписка на награды создана!');
+              }
+            } catch (e) {
+              console.error('Пряня: ошибка при подписке:', e);
+            }
+          }
+
+          if (messageType === 'notification') {
+            if (data.metadata.subscription_type === 'channel.channel_points_custom_reward_redemption.add') {
+              const rewardTitle = data.payload.event.reward.title;
+              console.log('Пряня: пришла награда:', rewardTitle);
+
+              if (rewardTitle === REWARD_TITLE) {
+                console.log('🎁 Пряня: запуск приветствия!');
+                window.triggerGingyWave();
+              }
+            }
+          }
+
+          if (messageType === 'revocation') {
+            console.warn('Пряня: подписка отозвана Twitch-ом:', data.payload);
+          }
+        };
+
+        ws.onclose = () => {
+          console.log('Пряня: соединение с Twitch закрыто. Переподключение через 5 сек...');
+          setTimeout(connectTwitch, 5000);
+        };
+
+        ws.onerror = (err) => console.error('Пряня: ошибка WebSocket к Twitch:', err);
+
+      } catch (err) {
+        console.error('Пряня: ошибка подключения:', err);
+        setTimeout(connectTwitch, 5000);
+      }
+    }
+
+    connectTwitch();
   </script>
 </body>
 </html>
